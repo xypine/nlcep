@@ -221,7 +221,45 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a></pre></div><pre class="rust"><code><span class="doccomment">//! ## Natural Language Calendar Event Parser
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a></pre></div><pre class="rust"><code><span class="doccomment">//! ## Natural Language Calendar Event Parser
 //! ### About
 //! A library for parsing strings such as "John's birthday 18.11." or "Meeting about new duck quotas tomorrow 11:00 @ A769" into a machine readable format.
 //! 
@@ -234,7 +272,7 @@
 //! You should have received a copy of the GNU Affero General Public License along with this program (LICENSE.txt). If not, see &lt;https://www.gnu.org/licenses/&gt;. 
 //!
 //! ### Usage
-//! The main logic can be accessed by constructing a [NewEvent] from a string. For example:
+//! The main logic can be accessed by constructing a [`NewEvent`] from a string. For example:
 //! ```rust
 //! // Parse event
 //! let event: nlcep::NewEvent = 
@@ -258,7 +296,45 @@
 //! assert_eq!(event.time.minute(), 0);
 //! 
 //! ```
-
+</span><span class="attr">#![deny(unsafe_code)]
+#![warn(
+    clippy::cognitive_complexity,
+    clippy::dbg_macro,
+    clippy::debug_assert_with_mut_call,
+    clippy::doc_link_with_quotes,
+    clippy::doc_markdown,
+    clippy::empty_line_after_outer_attr,
+    clippy::empty_structs_with_brackets,
+    clippy::float_cmp,
+    clippy::float_cmp_const,
+    clippy::float_equality_without_abs,
+    keyword_idents,
+    clippy::missing_const_for_fn,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    clippy::missing_docs_in_private_items,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    non_ascii_idents,
+    noop_method_call,
+    clippy::option_if_let_else,
+    clippy::print_stderr,
+    clippy::print_stdout,
+    clippy::semicolon_if_nothing_returned,
+    clippy::unseparated_literal_suffix,
+    clippy::shadow_unrelated,
+    clippy::similar_names,
+    clippy::suspicious_operation_groupings,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    unused_import_braces,
+    clippy::unused_self,
+    clippy::use_debug,
+    clippy::used_underscore_binding,
+    clippy::useless_let_if_seq,
+    clippy::wildcard_dependencies,
+    clippy::wildcard_imports
+)]
 
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>temporal;
 
@@ -283,7 +359,7 @@
 
 
 <span class="doccomment">/// Contains all possible error variants that may occur while parsing a new event.
-</span><span class="attr">#[derive(Debug, PartialEq, thiserror::Error)]
+</span><span class="attr">#[derive(Debug, PartialEq, Clone, Copy, thiserror::Error)]
 </span><span class="kw">pub enum </span>EventParseError {
     <span class="doccomment">/// No valid datetime could be parsed, other details might be valid.
     /// For example:

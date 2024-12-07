@@ -188,7 +188,20 @@
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::str::FromStr;
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::str::FromStr;
 
 <span class="kw">use </span>jiff::{civil::{date, Date}, ToSpan, Zoned};
 
@@ -196,7 +209,8 @@
     <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Date;
 }
 
-<span class="attr">#[derive(Debug, PartialEq)]
+<span class="doccomment">/// "Natural language" date formats
+</span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">pub enum </span>DateRelative {
     Tomorrow,
 }
@@ -250,28 +264,28 @@
 
 <span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">pub enum </span>DateStructured {
-    YMD(i16, i8, i8),
-    MD(i8, i8)
+    Ymd(i16, i8, i8),
+    Hms(i8, i8)
 }
 <span class="kw">impl </span>FromStr <span class="kw">for </span>DateStructured {
     <span class="kw">type </span><span class="prelude-val">Err </span>= ();
 
-    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>split_by_dots = s.split(<span class="string">'.'</span>);
+    <span class="kw">fn </span>from_str(string: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>split_by_dots = string.split(<span class="string">'.'</span>);
         <span class="kw">let </span>date = split_by_dots.next().ok_or(())<span class="question-mark">?</span>.parse::&lt;i8&gt;().map_err(|_e| ())<span class="question-mark">?</span>;
         <span class="kw">let </span>month = split_by_dots.next().ok_or(())<span class="question-mark">?</span>.parse::&lt;i8&gt;().map_err(|_e| ())<span class="question-mark">?</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(year_segment) = split_by_dots.next().filter(|s| !s.is_empty()) {
             <span class="kw">let </span>year = year_segment.parse::&lt;i16&gt;().map_err(|_e| ())<span class="question-mark">?</span>;
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::YMD(year, month, date));
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Ymd(year, month, date));
         };
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::MD(month, date))
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hms(month, date))
     }
 }
 <span class="kw">impl </span>AsDate <span class="kw">for </span>DateStructured {
     <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Date {
         <span class="kw">match </span><span class="self">self </span>{
-            DateStructured::YMD(year, month, day) =&gt; date(<span class="kw-2">*</span>year, <span class="kw-2">*</span>month, <span class="kw-2">*</span>day),
-            DateStructured::MD(month, day) =&gt; {
+            DateStructured::Ymd(year, month, day) =&gt; date(<span class="kw-2">*</span>year, <span class="kw-2">*</span>month, <span class="kw-2">*</span>day),
+            DateStructured::Hms(month, day) =&gt; {
                 <span class="kw">let </span>current_year = Zoned::now().year();
                 date(current_year, <span class="kw-2">*</span>month, <span class="kw-2">*</span>day)
             }
@@ -293,7 +307,19 @@
         }
     }
 }
-<span class="kw">pub fn </span>find_date(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;(DateUnit, usize, usize)&gt; {
+
+<span class="doccomment">/// Tries to find a date from the supplied string.
+/// The date can be expressed as
+/// - a full gregorian calendar date in (d)d.(m)m.(yyy)y: 8.12.2000, 13.04.2004, 1.1.0
+/// - next matching (d)d.(m)m. gregorian calendar date: 8.12., 13.04., 1.1.
+///   - If the date is currently 01.06.2019, the strings above will be parsed as: 8.12.2019,
+///     13.04.2020, 1.1.2020
+/// - a relative date, such as:
+///   - tomorrow
+///   - (not implemented yet) yesterday
+///   - (not implemented yet) (next/last) (weekday/"context event")
+///   - (not implemented yet) (weekday) (after/before) ("context event")
+</span><span class="kw">pub fn </span>find_date(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;(DateUnit, usize, usize)&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>start = <span class="number">0</span>;
     <span class="kw">for </span>word <span class="kw">in </span>s.split([<span class="string">' '</span>, <span class="string">','</span>]) {
         <span class="kw">let </span>end = start + word.len();
@@ -316,28 +342,28 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_date_trivial_month_date_a() {
         <span class="kw">let </span>(unit, start, end) = find_date(<span class="string">"John's birthday 18.11."</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::MD(<span class="number">11</span>, <span class="number">18</span>)));
+        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Hms(<span class="number">11</span>, <span class="number">18</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">16</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">22</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_date_trivial_month_date_b() {
         <span class="kw">let </span>(unit, start, end) = find_date(<span class="string">"Meet with Evelyn 1.12."</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::MD(<span class="number">12</span>, <span class="number">1</span>)));
+        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Hms(<span class="number">12</span>, <span class="number">1</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">17</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">22</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_date_trivial_month_date_c() {
         <span class="kw">let </span>(unit, start, end) = find_date(<span class="string">"Meet with Evelyn 12.1."</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::MD(<span class="number">1</span>, <span class="number">12</span>)));
+        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Hms(<span class="number">1</span>, <span class="number">12</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">17</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">22</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_date_trivial_year_month_date() {
         <span class="kw">let </span>(unit, start, end) = find_date(<span class="string">"John's birthday 18.11.2004"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::YMD(<span class="number">2004</span>, <span class="number">11</span>, <span class="number">18</span>)));
+        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Ymd(<span class="number">2004</span>, <span class="number">11</span>, <span class="number">18</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">16</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">26</span>);
     }

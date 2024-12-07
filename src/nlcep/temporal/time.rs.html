@@ -175,26 +175,37 @@
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::str::FromStr;
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::str::FromStr;
 
 <span class="kw">use </span>jiff::civil::Time;
-
 
 <span class="kw">pub trait </span>AsTime {
     <span class="kw">fn </span>as_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Time;
 }
 
-<span class="attr">#[derive(Debug, PartialEq)]
+<span class="doccomment">/// "Regularly formatted" time formats
+</span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">pub enum </span>TimeStructured {
-    H(i8),
-    HM(i8, i8),
-    HMS(i8, i8, i8),
+    <span class="doccomment">/// Hours
+    </span>H(i8),
+    <span class="doccomment">/// Hours, Minutes
+    </span>Hm(i8, i8),
+    <span class="doccomment">/// Hours, Minutes, Seconds
+    </span>Hms(i8, i8, i8),
 }
 <span class="kw">impl </span>FromStr <span class="kw">for </span>TimeStructured {
     <span class="kw">type </span><span class="prelude-val">Err </span>= ();
 
-    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>split_by_colon = s.split(<span class="string">':'</span>);
+    <span class="kw">fn </span>from_str(string: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>split_by_colon = string.split(<span class="string">':'</span>);
         <span class="kw">let </span>hours = split_by_colon.next().ok_or(())<span class="question-mark">?</span>.parse::&lt;i8&gt;().map_err(|_e| ())<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(minute_segment) = split_by_colon.next().filter(|s| !s.is_empty()) {
@@ -203,10 +214,10 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(second_segment) = split_by_colon.next().filter(|s| !s.is_empty()) {
                 <span class="kw">let </span>seconds = second_segment.parse::&lt;i8&gt;().map_err(|_e| ())<span class="question-mark">?</span>;
 
-                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::HMS(hours, minutes, seconds));
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hms(hours, minutes, seconds));
             };
 
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::HM(hours, minutes));
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hm(hours, minutes));
         };
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::H(hours))
     }
@@ -215,11 +226,12 @@
     <span class="kw">fn </span>as_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Time {
         <span class="kw">match </span><span class="self">self </span>{
             TimeStructured::H(h) =&gt; Time::new(<span class="kw-2">*</span>h, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>).unwrap(),
-            TimeStructured::HM(h, m) =&gt; Time::new(<span class="kw-2">*</span>h, <span class="kw-2">*</span>m, <span class="number">0</span>, <span class="number">0</span>).unwrap(),
-            TimeStructured::HMS(h, m, s) =&gt; Time::new(<span class="kw-2">*</span>h, <span class="kw-2">*</span>m, <span class="kw-2">*</span>s, <span class="number">0</span>).unwrap(),
+            TimeStructured::Hm(h, m) =&gt; Time::new(<span class="kw-2">*</span>h, <span class="kw-2">*</span>m, <span class="number">0</span>, <span class="number">0</span>).unwrap(),
+            TimeStructured::Hms(h, m, s) =&gt; Time::new(<span class="kw-2">*</span>h, <span class="kw-2">*</span>m, <span class="kw-2">*</span>s, <span class="number">0</span>).unwrap(),
         }
     }
 }
+
 <span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">pub enum </span>TimeUnit {
     Structured(TimeStructured),
@@ -231,17 +243,21 @@
         }
     }
 }
-<span class="kw">pub fn </span>find_time(s_after_date: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;(TimeUnit, usize, usize)&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>start = <span class="number">0</span>;
+
+<span class="doccomment">/// Tries to find a time from the supplied string.
+/// The time can be expressed as
+/// - a (H)H time: 12, 01, 8, ...
+/// - a (H)H:(M)M time: 12:00, 01:30, 8:1, ...
+/// - a (H)H:(M)M:(S)S time: 12:00:00, 01:30:1, 8:1:23, ...
+</span><span class="kw">pub fn </span>find_time(s_after_date: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;(TimeUnit, usize, usize)&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>start: usize = <span class="number">0</span>;
     <span class="kw">for </span>c <span class="kw">in </span>s_after_date.chars() {
         <span class="kw">match </span>c {
             <span class="string">' ' </span>=&gt; start += <span class="number">1</span>,
             <span class="kw">_ </span>=&gt; <span class="kw">break
         </span>}
     }
-    <span class="kw">if </span>start &gt; <span class="number">0 </span>{
-        start -= <span class="number">1</span>;
-    }
+    start = start.saturating_sub(<span class="number">1</span>);
     <span class="kw">for </span>word <span class="kw">in </span>s_after_date.split([<span class="string">' '</span>, <span class="string">','</span>]) {
         <span class="kw">let </span>end = start + word.len();
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(unit) = word.parse::&lt;TimeStructured&gt;() {
@@ -260,21 +276,21 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_trivial_a() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">"18:11"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HM(<span class="number">18</span>, <span class="number">11</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hm(<span class="number">18</span>, <span class="number">11</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">5</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_trivial_b() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">"3:03"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HM(<span class="number">3</span>, <span class="number">3</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hm(<span class="number">3</span>, <span class="number">3</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">4</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_trivial_c() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">"0:1"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HM(<span class="number">0</span>, <span class="number">1</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hm(<span class="number">0</span>, <span class="number">1</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">3</span>);
     }
@@ -289,14 +305,14 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_whitespace_a() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">" 4:01"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HM(<span class="number">4</span>, <span class="number">1</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hm(<span class="number">4</span>, <span class="number">1</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">5</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_whitespace_b() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">" 23:59  "</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HM(<span class="number">23</span>, <span class="number">59</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hm(<span class="number">23</span>, <span class="number">59</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">6</span>);
     }
@@ -304,21 +320,21 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_junk_a() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">" iaksjdk 13:30"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HM(<span class="number">13</span>, <span class="number">30</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hm(<span class="number">13</span>, <span class="number">30</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">9</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">14</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_junk_b() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">"8:15 @ Annankatu 13"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HM(<span class="number">8</span>, <span class="number">15</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hm(<span class="number">8</span>, <span class="number">15</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">4</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_junk_c() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">"ab123.23. 14:13 @ Taajamankatu 5"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HM(<span class="number">14</span>, <span class="number">13</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hm(<span class="number">14</span>, <span class="number">13</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">10</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">15</span>);
     }
@@ -333,21 +349,21 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_with_seconds_a() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">"19:59:00"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HMS(<span class="number">19</span>, <span class="number">59</span>, <span class="number">0</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hms(<span class="number">19</span>, <span class="number">59</span>, <span class="number">0</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">8</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_with_seconds_b() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">"11:09:59"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HMS(<span class="number">11</span>, <span class="number">9</span>, <span class="number">59</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hms(<span class="number">11</span>, <span class="number">9</span>, <span class="number">59</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">8</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_time_with_seconds_c() {
         <span class="kw">let </span>(unit, start, end) = find_time(<span class="string">"8:0:1"</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::HMS(<span class="number">8</span>, <span class="number">0</span>, <span class="number">1</span>)));
+        <span class="macro">assert_eq!</span>(unit, TimeUnit::Structured(TimeStructured::Hms(<span class="number">8</span>, <span class="number">0</span>, <span class="number">1</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">5</span>);
     }
