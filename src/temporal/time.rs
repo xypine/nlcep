@@ -9,7 +9,6 @@ pub trait AsTime {
 
 #[derive(Debug, PartialEq)]
 pub enum TimeStructured {
-    /// Hours only, must be terminated with :
     H(i8),
     HM(i8, i8),
     HMS(i8, i8, i8),

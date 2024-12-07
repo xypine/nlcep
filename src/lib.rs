@@ -1,4 +1,43 @@
-pub mod temporal;
+//! ## Natural Language Calendar Event Parser
+//! ### About
+//! A library for parsing strings such as "John's birthday 18.11." or "Meeting about new duck quotas tomorrow 11:00 @ A769" into a machine readable format.
+//! 
+//! Copyright (C) 2024 Elias Eskelinen <elias.eskelinen@pm.me>
+//! 
+//! This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+//! 
+//! This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+//! 
+//! You should have received a copy of the GNU Affero General Public License along with this program (LICENSE.txt). If not, see <https://www.gnu.org/licenses/>. 
+//!
+//! ### Usage
+//! The main logic can be accessed by constructing a [NewEvent] from a string. For example:
+//! ```rust
+//! // Parse event
+//! let event: nlcep::NewEvent = 
+//!     "Meeting about Q3 duckling quotas tomorrow 11:00, A769"
+//!     .parse()
+//!     .expect("Parsing event failed");
+//!
+//!
+//! // Basic details should be correct
+//! assert_eq!(event.summary, "Meeting about Q3 duckling quotas");
+//! assert_eq!(event.location, Some("A769".to_owned()));
+//!
+//! // Let's check that the meeting has been parsed as tomorrow 11:00!
+//! use jiff::{ Zoned, ToSpan }; // nlcep uses jiff for storing dates
+//! let tomorrow = Zoned::now().checked_add(1.day()).unwrap();
+//!
+//! assert_eq!(event.time.year(), tomorrow.year());
+//! assert_eq!(event.time.day(), tomorrow.day());
+//! assert_eq!(event.time.month(), tomorrow.month());
+//! assert_eq!(event.time.hour(), 11);
+//! assert_eq!(event.time.minute(), 0);
+//! 
+//! ```
+
+
+pub(crate) mod temporal;
 
 use std::str::FromStr;
 
@@ -6,25 +45,48 @@ use jiff::{civil::DateTime, Span};
 use lazy_regex::regex;
 use temporal::find_datetime;
 
+/// Represents a parsed event
 #[derive(Debug, PartialEq)]
 pub struct NewEvent {
-    summary: String,
-    time: DateTime,
-    location: Option<String>,
-    duration: Option<Span>
+    /// Summary of the parsed event
+    pub summary: String,
+    /// When the event takes place, stored without a timezone (constructed from user input as-is)
+    pub time: DateTime,
+    /// Where the event takes place, not mandatory
+    pub location: Option<String>,
+    /// For how long the event goes on, not mandatory
+    pub duration: Option<Span>
 }
 
 
+/// Contains all possible error variants that may occur while parsing a new event.
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum EventParseError {
-    #[error("Missing summary")]
-    MissingSummary,
+    /// No valid datetime could be parsed, other details might be valid.
+    /// For example:
+    /// ```rust
+    /// use nlcep::{ NewEvent, EventParseError };
+    /// let err = "Meet Saara @ Local Library".parse::<NewEvent>();
+    /// assert_eq!(err, Err(EventParseError::MissingTime));
+    /// ```
     #[error("Missing time")]
     MissingTime,
+    /// Reserved for future use
     #[error("Invalid time")]
     InvalidTime,
+    /// Reserved for future use
     #[error("Ambiguous time")]
     AmbiguousTime,
+    /// The event contains a valid time, but a summary couldn't be found.
+    /// For example:
+    /// ```rust
+    /// use nlcep::{ NewEvent, EventParseError };
+    /// let err = "tomorrow 11:00".parse::<NewEvent>();
+    /// assert_eq!(err, Err(EventParseError::MissingSummary));
+    /// ```
+    #[error("Missing summary")]
+    MissingSummary,
+    /// Reserved for future use
     #[error("Ambiguous duration")]
     AmbiguousDuration,
 }
