@@ -12,5 +12,5 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 You should have received a copy of the GNU Affero General Public License along with this program (LICENSE.txt). If not, see <https://www.gnu.org/licenses/>. 
 
-### Usage
-See [docs]()
+### Usage & Examples
+See the [docs](https://xypine.github.io/nlcep/).
