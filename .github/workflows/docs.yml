@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   docs:
     permissions:
@@ -18,6 +21,8 @@ jobs:
         - name: Finalize documentation
           run: |
             touch target/doc/.nojekyll
+            CRATE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | cut -f2 -d"/")
+            echo "<meta http-equiv=\"refresh\" content=\"0; url=${CRATE_NAME/-/_}\">" > target/doc/index.html
         - name: Upload as artifact
           uses: actions/upload-artifact@v4
           with:
