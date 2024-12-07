@@ -6,6 +6,7 @@ pub trait AsDate {
     fn as_date(&self) -> Date;
 }
 
+/// "Natural language" date formats
 #[derive(Debug, PartialEq)]
 pub enum DateRelative {
     Tomorrow,
@@ -60,28 +61,28 @@ impl FromStr for DateMD {
 
 #[derive(Debug, PartialEq)]
 pub enum DateStructured {
-    YMD(i16, i8, i8),
-    MD(i8, i8)
+    Ymd(i16, i8, i8),
+    Hms(i8, i8)
 }
 impl FromStr for DateStructured {
     type Err = ();
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut split_by_dots = s.split('.');
+    fn from_str(string: &str) -> Result<Self, Self::Err> {
+        let mut split_by_dots = string.split('.');
         let date = split_by_dots.next().ok_or(())?.parse::<i8>().map_err(|_e| ())?;
         let month = split_by_dots.next().ok_or(())?.parse::<i8>().map_err(|_e| ())?;
         if let Some(year_segment) = split_by_dots.next().filter(|s| !s.is_empty()) {
             let year = year_segment.parse::<i16>().map_err(|_e| ())?;
-            return Ok(Self::YMD(year, month, date));
+            return Ok(Self::Ymd(year, month, date));
         };
-        Ok(Self::MD(month, date))
+        Ok(Self::Hms(month, date))
     }
 }
 impl AsDate for DateStructured {
     fn as_date(&self) -> Date {
         match self {
-            DateStructured::YMD(year, month, day) => date(*year, *month, *day),
-            DateStructured::MD(month, day) => {
+            DateStructured::Ymd(year, month, day) => date(*year, *month, *day),
+            DateStructured::Hms(month, day) => {
                 let current_year = Zoned::now().year();
                 date(current_year, *month, *day)
             }
@@ -103,6 +104,18 @@ impl AsDate for DateUnit {
         }
     }
 }
+
+/// Tries to find a date from the supplied string.
+/// The date can be expressed as
+/// - a full gregorian calendar date in (d)d.(m)m.(yyy)y: 8.12.2000, 13.04.2004, 1.1.0
+/// - next matching (d)d.(m)m. gregorian calendar date: 8.12., 13.04., 1.1.
+///   - If the date is currently 01.06.2019, the strings above will be parsed as: 8.12.2019,
+///     13.04.2020, 1.1.2020
+/// - a relative date, such as:
+///   - tomorrow
+///   - (not implemented yet) yesterday
+///   - (not implemented yet) (next/last) (weekday/"context event")
+///   - (not implemented yet) (weekday) (after/before) ("context event")
 pub fn find_date(s: &str) -> Option<(DateUnit, usize, usize)> {
     let mut start = 0;
     for word in s.split([' ', ',']) {
@@ -126,28 +139,28 @@ mod tests {
     #[test]
     fn find_date_trivial_month_date_a() {
         let (unit, start, end) = find_date("John's birthday 18.11.").expect("parse failed");
-        assert_eq!(unit, DateUnit::Structured(DateStructured::MD(11, 18)));
+        assert_eq!(unit, DateUnit::Structured(DateStructured::Hms(11, 18)));
         assert_eq!(start, 16);
         assert_eq!(end, 22);
     }
     #[test]
     fn find_date_trivial_month_date_b() {
         let (unit, start, end) = find_date("Meet with Evelyn 1.12.").expect("parse failed");
-        assert_eq!(unit, DateUnit::Structured(DateStructured::MD(12, 1)));
+        assert_eq!(unit, DateUnit::Structured(DateStructured::Hms(12, 1)));
         assert_eq!(start, 17);
         assert_eq!(end, 22);
     }
     #[test]
     fn find_date_trivial_month_date_c() {
         let (unit, start, end) = find_date("Meet with Evelyn 12.1.").expect("parse failed");
-        assert_eq!(unit, DateUnit::Structured(DateStructured::MD(1, 12)));
+        assert_eq!(unit, DateUnit::Structured(DateStructured::Hms(1, 12)));
         assert_eq!(start, 17);
         assert_eq!(end, 22);
     }
     #[test]
     fn find_date_trivial_year_month_date() {
         let (unit, start, end) = find_date("John's birthday 18.11.2004").expect("parse failed");
-        assert_eq!(unit, DateUnit::Structured(DateStructured::YMD(2004, 11, 18)));
+        assert_eq!(unit, DateUnit::Structured(DateStructured::Ymd(2004, 11, 18)));
         assert_eq!(start, 16);
         assert_eq!(end, 26);
     }

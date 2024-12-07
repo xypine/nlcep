@@ -1,4 +1,5 @@
-//! Used inside the library for parsing date and time information from strings
+//! Used internally by library for parsing date and time information from strings
+#![allow(clippy::missing_docs_in_private_items)]
 
 use date::find_date;
 use jiff::civil::DateTime;
@@ -9,6 +10,13 @@ pub mod time;
 use date::AsDate;
 use time::{find_time, AsTime};
 
+/// Tries to find a datetime from the supplied string.
+/// The date must be before the time.
+/// See [`find_date`] and [`find_time`] for more information on accepted formatting of the date or
+/// time.
+///
+/// Returns the interpreted [`DateTime`] and the start, end indices of
+/// the original string where the datetime was parsed from.
 pub fn find_datetime(s: &str) -> Option<(DateTime, usize, usize)> {
     let (date, date_start, date_end) = find_date(s)?;
     let (_, s_after_date) = s.split_at(date_end);

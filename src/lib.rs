@@ -11,7 +11,7 @@
 //! You should have received a copy of the GNU Affero General Public License along with this program (LICENSE.txt). If not, see <https://www.gnu.org/licenses/>. 
 //!
 //! ### Usage
-//! The main logic can be accessed by constructing a [NewEvent] from a string. For example:
+//! The main logic can be accessed by constructing a [`NewEvent`] from a string. For example:
 //! ```rust
 //! // Parse event
 //! let event: nlcep::NewEvent = 
@@ -35,7 +35,45 @@
 //! assert_eq!(event.time.minute(), 0);
 //! 
 //! ```
-
+#![deny(unsafe_code)]
+#![warn(
+    clippy::cognitive_complexity,
+    clippy::dbg_macro,
+    clippy::debug_assert_with_mut_call,
+    clippy::doc_link_with_quotes,
+    clippy::doc_markdown,
+    clippy::empty_line_after_outer_attr,
+    clippy::empty_structs_with_brackets,
+    clippy::float_cmp,
+    clippy::float_cmp_const,
+    clippy::float_equality_without_abs,
+    keyword_idents,
+    clippy::missing_const_for_fn,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    clippy::missing_docs_in_private_items,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    non_ascii_idents,
+    noop_method_call,
+    clippy::option_if_let_else,
+    clippy::print_stderr,
+    clippy::print_stdout,
+    clippy::semicolon_if_nothing_returned,
+    clippy::unseparated_literal_suffix,
+    clippy::shadow_unrelated,
+    clippy::similar_names,
+    clippy::suspicious_operation_groupings,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    unused_import_braces,
+    clippy::unused_self,
+    clippy::use_debug,
+    clippy::used_underscore_binding,
+    clippy::useless_let_if_seq,
+    clippy::wildcard_dependencies,
+    clippy::wildcard_imports
+)]
 
 pub(crate) mod temporal;
 
@@ -60,7 +98,7 @@ pub struct NewEvent {
 
 
 /// Contains all possible error variants that may occur while parsing a new event.
-#[derive(Debug, PartialEq, thiserror::Error)]
+#[derive(Debug, PartialEq, Clone, Copy, thiserror::Error)]
 pub enum EventParseError {
     /// No valid datetime could be parsed, other details might be valid.
     /// For example:
