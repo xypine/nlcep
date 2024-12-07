@@ -1,9 +1,11 @@
 [package]
 name = "nlcep"
+description = "a library for parsing natural language calendar events"
 version = "0.1.0"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 authors = ["Elias Eskelinen <elias.eskelinen@pm.me>"]
+repository = "https://github.com/xypine/nlcep"
 
 [dependencies]
 jiff = "0.1.15"
