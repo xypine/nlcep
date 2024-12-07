@@ -1,0 +1,29 @@
+name: Documentation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  docs:
+    permissions:
+        contents: write
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v4
+        - uses: dtolnay/rust-toolchain@stable
+        - run: cargo doc --no-deps
+        - name: Finalize documentation
+          run: |
+            touch target/doc/.nojekyll
+        - name: Upload as artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: Documentation
+            path: target/doc
+        - name: Deploy
+          uses: JamesIves/github-pages-deploy-action@v4
+          with:
+            folder: target/doc
