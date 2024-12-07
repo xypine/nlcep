@@ -13,4 +13,9 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 You should have received a copy of the GNU Affero General Public License along with this program (LICENSE.txt). If not, see <https://www.gnu.org/licenses/>. 
 
 ### Usage & Examples
-See the [docs](https://xypine.github.io/nlcep/).
+The library is available at [crates.io](https://crates.io/crates/nlcep), you can add it to your project as a dependency by running ```cargo add nlcep```.
+
+
+You can read the documentation of the latest release on [docs.rs](https://docs.rs/nlcep/latest/nlcep/).
+
+Documentation for the (possibly still work-in-progress) main branch is also available at my [github pages](https://xypine.github.io/nlcep/).
