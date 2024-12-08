@@ -5,7 +5,7 @@ use jiff::{civil::{date, Date}, ToSpan, Zoned};
 use crate::EventParseError;
 
 pub trait AsDate {
-    fn as_date(&self) -> Result<Date, EventParseError>;
+    fn as_date(&self, now: Zoned) -> Result<Date, EventParseError>;
 }
 
 #[derive(Debug, PartialEq)]
@@ -31,11 +31,10 @@ impl FromStr for DateRelative {
     }
 }
 impl AsDate for DateRelative {
-    fn as_date(&self) -> Result<Date, EventParseError> {
+    fn as_date(&self, now: Zoned) -> Result<Date, EventParseError> {
         match self {
             DateRelative::Tomorrow(_) => {
-                let today = Zoned::now();
-                let tomorrow = today.checked_add(1.day()).map_err(|_e| EventParseError::AmbiguousTime)?;
+                let tomorrow = now.checked_add(1.day()).map_err(|_e| EventParseError::AmbiguousTime)?;
                 Ok(tomorrow.into())
             },
         }
@@ -72,7 +71,7 @@ impl FromStr for DateMD {
 #[derive(Debug, PartialEq)]
 pub enum DateStructured {
     Ymd(i16, i8, i8),
-    Hms(i8, i8)
+    Ym(i8, i8)
 }
 impl FromStr for DateStructured {
     type Err = ();
@@ -85,16 +84,23 @@ impl FromStr for DateStructured {
             let year = year_segment.parse::<i16>().map_err(|_e| ())?;
             return Ok(Self::Ymd(year, month, date));
         };
-        Ok(Self::Hms(month, date))
+        Ok(Self::Ym(month, date))
     }
 }
 impl AsDate for DateStructured {
-    fn as_date(&self) -> Result<Date, EventParseError> {
+    fn as_date(&self, now: Zoned) -> Result<Date, EventParseError> {
         match self {
             DateStructured::Ymd(year, month, day) => Ok(date(*year, *month, *day)),
-            DateStructured::Hms(month, day) => {
-                let current_year = Zoned::now().year();
-                Ok(date(current_year, *month, *day))
+            DateStructured::Ym(month, day) => {
+                let current_year = now.year();
+                let current_month = now.month();
+                let current_day = now.day();
+                if *month < current_month || *month == current_month && *day < current_day {
+                    // That date has already passed this year, target next year instead
+                    Ok(date(current_year + 1, *month, *day))
+                } else {
+                    Ok(date(current_year, *month, *day))
+                }
             }
         }
     }
@@ -107,10 +113,10 @@ pub enum DateUnit {
     Relative(DateRelative)
 }
 impl AsDate for DateUnit {
-    fn as_date(&self) -> Result<Date, EventParseError> {
+    fn as_date(&self, now: Zoned) -> Result<Date, EventParseError> {
         match self {
-            DateUnit::Structured(structured) => structured.as_date(),
-            DateUnit::Relative(relative) => relative.as_date(),
+            DateUnit::Structured(structured) => structured.as_date(now),
+            DateUnit::Relative(relative) => relative.as_date(now),
         }
     }
 }
@@ -149,21 +155,21 @@ mod tests {
     #[test]
     fn find_date_trivial_month_date_a() {
         let (unit, start, end) = find_date("John's birthday 18.11.").expect("parse failed");
-        assert_eq!(unit, DateUnit::Structured(DateStructured::Hms(11, 18)));
+        assert_eq!(unit, DateUnit::Structured(DateStructured::Ym(11, 18)));
         assert_eq!(start, 16);
         assert_eq!(end, 22);
     }
     #[test]
     fn find_date_trivial_month_date_b() {
         let (unit, start, end) = find_date("Meet with Evelyn 1.12.").expect("parse failed");
-        assert_eq!(unit, DateUnit::Structured(DateStructured::Hms(12, 1)));
+        assert_eq!(unit, DateUnit::Structured(DateStructured::Ym(12, 1)));
         assert_eq!(start, 17);
         assert_eq!(end, 22);
     }
     #[test]
     fn find_date_trivial_month_date_c() {
         let (unit, start, end) = find_date("Meet with Evelyn 12.1.").expect("parse failed");
-        assert_eq!(unit, DateUnit::Structured(DateStructured::Hms(1, 12)));
+        assert_eq!(unit, DateUnit::Structured(DateStructured::Ym(1, 12)));
         assert_eq!(start, 17);
         assert_eq!(end, 22);
     }

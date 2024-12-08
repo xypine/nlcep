@@ -1,3 +1,5 @@
+use jiff::{tz::TimeZone, Timestamp, Zoned};
+use js_sys::Date;
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -13,6 +15,13 @@ pub struct EventResult(Result<NewEvent, EventParseError>);
 #[wasm_bindgen]
 pub fn parse(string: String) -> EventResult {
     EventResult(string.parse())
+}
+
+#[wasm_bindgen]
+pub fn parse_at_time(string: String, at: Date) -> EventResult {
+    let millis = at.get_milliseconds();
+    let now = Zoned::new(Timestamp::from_millisecond(millis as i64).expect("failed to construct Zoned from js Date"), TimeZone::UTC);
+    EventResult(NewEvent::parse_at_time(&string, now))
 }
 
 #[wasm_bindgen]
