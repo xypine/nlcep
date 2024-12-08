@@ -90,7 +90,11 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a></pre></div><pre class="rust"><code><span class="doccomment">//! Used internally by library for parsing date and time information from strings
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a></pre></div><pre class="rust"><code><span class="doccomment">//! Used internally by library for parsing date and time information from strings
 </span><span class="attr">#![allow(clippy::missing_docs_in_private_items)]
 
 </span><span class="kw">use </span>date::find_date;
@@ -102,6 +106,8 @@
 <span class="kw">use </span>date::AsDate;
 <span class="kw">use </span>time::{find_time, AsTime};
 
+<span class="kw">use </span><span class="kw">crate</span>::EventParseError;
+
 <span class="doccomment">/// Tries to find a datetime from the supplied string.
 /// The date must be before the time.
 /// See [`find_date`] and [`find_time`] for more information on accepted formatting of the date or
@@ -109,19 +115,21 @@
 ///
 /// Returns the interpreted [`DateTime`] and the start, end indices of
 /// the original string where the datetime was parsed from.
-</span><span class="kw">pub fn </span>find_datetime(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;(DateTime, usize, usize)&gt; {
-    <span class="kw">let </span>(date, date_start, date_end) = find_date(s)<span class="question-mark">?</span>;
-    <span class="kw">let </span>(<span class="kw">_</span>, s_after_date) = s.split_at(date_end);
+</span><span class="kw">pub fn </span>find_datetime(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(DateTime, usize, usize)&gt;, EventParseError&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>((date, date_start, date_end)) = find_date(s) {
+        <span class="kw">let </span>(<span class="kw">_</span>, s_after_date) = s.split_at(date_end);
 
-    <span class="kw">let </span>date = date.as_date();
-    <span class="kw">let </span><span class="kw-2">mut </span>end = date_end;
-    <span class="kw">let </span>dt = <span class="kw">if let </span><span class="prelude-val">Some</span>((time, _time_start, time_end)) = find_time(s_after_date) {
-        end += time_end;
-        date.to_datetime(time.as_time())
-    } <span class="kw">else </span>{
-        date.into()
-    };
-    <span class="prelude-val">Some</span>((dt, date_start, end))
+        <span class="kw">let </span>date = date.as_date()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>end = date_end;
+        <span class="kw">let </span>dt = <span class="kw">if let </span><span class="prelude-val">Some</span>((time, _time_start, time_end)) = find_time(s_after_date) {
+            end += time_end;
+            date.to_datetime(time.as_time()<span class="question-mark">?</span>)
+        } <span class="kw">else </span>{
+            date.into()
+        };
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((dt, date_start, end)));
+    }
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 }
 
 <span class="attr">#[cfg(test)]
@@ -130,7 +138,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>date_a() {
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"21.11.2004"</span>).expect(<span class="string">"parse failed"</span>);
+        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"21.11.2004"</span>).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">10</span>);
         <span class="macro">assert_eq!</span>(dt.year(), <span class="number">2004</span>);
@@ -141,7 +149,7 @@
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_a() {
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.9.1999 11:00"</span>).expect(<span class="string">"parse failed"</span>);
+        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.9.1999 11:00"</span>).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">15</span>);
         <span class="macro">assert_eq!</span>(dt.year(), <span class="number">1999</span>);
@@ -152,7 +160,7 @@
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_b() {
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.9.1999 11"</span>).expect(<span class="string">"parse failed"</span>);
+        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.9.1999 11"</span>).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">12</span>);
         <span class="macro">assert_eq!</span>(dt.year(), <span class="number">1999</span>);
@@ -163,7 +171,7 @@
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_c() {
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.9. 11"</span>).expect(<span class="string">"parse failed"</span>);
+        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.9. 11"</span>).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">8</span>);
         <span class="macro">assert_eq!</span>(dt.month(), <span class="number">9</span>);
@@ -174,7 +182,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_relative() {
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"tomorrow 0:30:12"</span>).expect(<span class="string">"parse failed"</span>);
+        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"tomorrow 0:30:12"</span>).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">16</span>);
         <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">0</span>);

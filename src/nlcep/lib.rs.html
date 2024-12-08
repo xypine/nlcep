@@ -255,7 +255,15 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a></pre></div><pre class="rust"><code><span class="doccomment">//! ## Natural Language Calendar Event Parser
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a></pre></div><pre class="rust"><code><span class="doccomment">//! ## Natural Language Calendar Event Parser
 //! ### About
 //! A library for parsing strings such as "John's birthday 18.11." or "Meeting about new duck quotas tomorrow 11:00 @ A769" into a machine readable format.
 //! 
@@ -329,6 +337,8 @@
 )]
 
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>temporal;
+<span class="attr">#[cfg(feature = <span class="string">"wasm"</span>)]
+</span><span class="kw">pub mod </span>wasm;
 
 <span class="kw">use </span>std::str::FromStr;
 
@@ -336,8 +346,12 @@
 <span class="kw">use </span>lazy_regex::regex;
 <span class="kw">use </span>temporal::find_datetime;
 
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+
 <span class="doccomment">/// Represents a parsed event
-</span><span class="attr">#[derive(Debug, PartialEq)]
+</span><span class="attr">#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = <span class="string">"wasm"</span>, derive(tsify::Tsify))]
+#[cfg_attr(feature = <span class="string">"wasm"</span>, tsify(into_wasm_abi, from_wasm_abi))]
 </span><span class="kw">pub struct </span>NewEvent {
     <span class="doccomment">/// Summary of the parsed event
     </span><span class="kw">pub </span>summary: String,
@@ -351,7 +365,9 @@
 
 
 <span class="doccomment">/// Contains all possible error variants that may occur while parsing a new event.
-</span><span class="attr">#[derive(Debug, PartialEq, Clone, Copy, thiserror::Error)]
+</span><span class="attr">#[derive(Debug, PartialEq, Clone, Copy, thiserror::Error, Serialize, Deserialize)]
+#[cfg_attr(feature = <span class="string">"wasm"</span>, derive(tsify::Tsify))]
+#[cfg_attr(feature = <span class="string">"wasm"</span>, tsify(into_wasm_abi, from_wasm_abi))]
 </span><span class="kw">pub enum </span>EventParseError {
     <span class="doccomment">/// No valid datetime could be parsed, other details might be valid.
     /// For example:
@@ -387,7 +403,7 @@
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>summary: <span class="prelude-ty">Option</span>&lt;String&gt; = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>location: <span class="prelude-ty">Option</span>&lt;String&gt; = <span class="prelude-val">None</span>;
-        <span class="kw">let </span>(time, time_starts, time_ends) = find_datetime(s).ok_or(EventParseError::MissingTime)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(time, time_starts, time_ends) = find_datetime(s)<span class="question-mark">?</span>.ok_or(EventParseError::MissingTime)<span class="question-mark">?</span>;
         <span class="kw">let </span>(before_time, <span class="kw">_</span>) = s.split_at(time_starts);
         <span class="kw">let </span>(<span class="kw">_</span>, after_time) = s.split_at(time_ends);
 
