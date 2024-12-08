@@ -263,7 +263,34 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a></pre></div><pre class="rust"><code><span class="doccomment">//! ## Natural Language Calendar Event Parser
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a></pre></div><pre class="rust"><code><span class="doccomment">//! ## Natural Language Calendar Event Parser
 //! ### About
 //! A library for parsing strings such as "John's birthday 18.11." or "Meeting about new duck quotas tomorrow 11:00 @ A769" into a machine readable format.
 //! 
@@ -282,7 +309,7 @@
 //! # let tomorrow = Zoned::now().checked_add(1.day()).unwrap();
 //! #
 //! // Parse event
-//! let event: nlcep::NewEvent = 
+//! let event: nlcep::NewEvent =
 //!     "Meeting about Q3 duckling quotas tomorrow 11:00, A769"
 //!     .parse()
 //!     .expect("Parsing event failed");
@@ -295,6 +322,22 @@
 //! assert_eq!(event.time.month(), tomorrow.month());
 //! assert_eq!(event.time.hour(), 11);
 //! assert_eq!(event.time.minute(), 0);
+//! ```
+//!
+//! You can also use [`NewEvent::parse_at_time`] to supply an alternative basis for relative time
+//! formats such as "tomorrow" or "yesterday":
+//! ```rust
+//! use jiff::{ Timestamp, Zoned };
+//! let now: Zoned = "2024-07-11T13:14:00Z"
+//!     .parse::&lt;Timestamp&gt;().expect("Invalid timestamp")
+//!     .intz("America/New_York").expect("Invalid timezone");
+//! // Parse event with an alternative "now"
+//! let event =
+//!     nlcep::NewEvent::parse_at_time("water the plants tomorrow", now)
+//!     .expect("Parsing event failed");
+//! assert_eq!(event.time.year(), 2024);
+//! assert_eq!(event.time.month(), 7);
+//! assert_eq!(event.time.day(), 11 + 1);
 //! ```
 </span><span class="attr">#![deny(unsafe_code)]
 #![warn(
@@ -342,7 +385,7 @@
 
 <span class="kw">use </span>std::str::FromStr;
 
-<span class="kw">use </span>jiff::{civil::DateTime, Span};
+<span class="kw">use </span>jiff::{civil::DateTime, Span, Zoned};
 <span class="kw">use </span>lazy_regex::regex;
 <span class="kw">use </span>temporal::find_datetime;
 
@@ -363,6 +406,33 @@
     </span><span class="kw">pub </span>duration: <span class="prelude-ty">Option</span>&lt;Span&gt;
 }
 
+<span class="kw">impl </span>NewEvent {
+    <span class="kw">pub fn </span>parse_at_time(s: <span class="kw-2">&amp;</span>str, now: Zoned) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, EventParseError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>summary: <span class="prelude-ty">Option</span>&lt;String&gt; = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>location: <span class="prelude-ty">Option</span>&lt;String&gt; = <span class="prelude-val">None</span>;
+        <span class="kw">let </span>(time, time_starts, time_ends) = find_datetime(s, now)<span class="question-mark">?</span>.ok_or(EventParseError::MissingTime)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(before_time, <span class="kw">_</span>) = s.split_at(time_starts);
+        <span class="kw">let </span>(<span class="kw">_</span>, after_time) = s.split_at(time_ends);
+
+        <span class="kw">let </span>before_time_trimmed = before_time.trim();
+        <span class="kw">if </span>!before_time_trimmed.is_empty() {
+            summary = <span class="prelude-val">Some</span>(before_time_trimmed.to_owned());
+        }
+
+        <span class="kw">let </span>location_start_pattern = <span class="macro">regex!</span>(<span class="string">r"\s*[@ | ,]\s+.+"</span>);
+        <span class="kw">if </span>location_start_pattern.is_match(after_time) {
+            <span class="kw">let </span>trimmed_location = after_time.trim().trim_start_matches([<span class="string">'@'</span>, <span class="string">','</span>]).trim_start();
+            location = <span class="prelude-val">Some</span>(trimmed_location.to_owned());
+        }
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            summary: summary.ok_or(EventParseError::MissingSummary)<span class="question-mark">?</span>,
+            time,
+            location,
+            duration: <span class="prelude-val">None
+        </span>})
+    }
+}
 
 <span class="doccomment">/// Contains all possible error variants that may occur while parsing a new event.
 </span><span class="attr">#[derive(Debug, PartialEq, Clone, Copy, thiserror::Error, Serialize, Deserialize)]
@@ -401,29 +471,8 @@
     <span class="kw">type </span><span class="prelude-val">Err </span>= EventParseError;
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>summary: <span class="prelude-ty">Option</span>&lt;String&gt; = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>location: <span class="prelude-ty">Option</span>&lt;String&gt; = <span class="prelude-val">None</span>;
-        <span class="kw">let </span>(time, time_starts, time_ends) = find_datetime(s)<span class="question-mark">?</span>.ok_or(EventParseError::MissingTime)<span class="question-mark">?</span>;
-        <span class="kw">let </span>(before_time, <span class="kw">_</span>) = s.split_at(time_starts);
-        <span class="kw">let </span>(<span class="kw">_</span>, after_time) = s.split_at(time_ends);
-
-        <span class="kw">let </span>before_time_trimmed = before_time.trim(); 
-        <span class="kw">if </span>!before_time_trimmed.is_empty() {
-            summary = <span class="prelude-val">Some</span>(before_time_trimmed.to_owned());
-        }
-
-        <span class="kw">let </span>location_start_pattern = <span class="macro">regex!</span>(<span class="string">r"\s*[@ | ,]\s+.+"</span>);
-        <span class="kw">if </span>location_start_pattern.is_match(after_time) {
-            <span class="kw">let </span>trimmed_location = after_time.trim().trim_start_matches([<span class="string">'@'</span>, <span class="string">','</span>]).trim_start();
-            location = <span class="prelude-val">Some</span>(trimmed_location.to_owned());
-        }
-
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            summary: summary.ok_or(EventParseError::MissingSummary)<span class="question-mark">?</span>,
-            time,
-            location,
-            duration: <span class="prelude-val">None
-        </span>})
+        <span class="kw">let </span>now = Zoned::now();
+        <span class="self">Self</span>::parse_at_time(s, now)
     }
 }
 
@@ -431,7 +480,7 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="kw">use </span>jiff::{ToSpan, Zoned};
+    <span class="kw">use </span>jiff::{civil::date, Zoned};
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>fail_only_summary() {
@@ -441,7 +490,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>trivial_a() {
-        <span class="kw">let </span>event = <span class="string">"John's birthday 18.11."</span>.parse::&lt;NewEvent&gt;().unwrap();
+        <span class="kw">let </span>now = date(<span class="number">2024</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
+        <span class="kw">let </span>event = NewEvent::parse_at_time(<span class="string">"John's birthday 18.11."</span>, now).unwrap();
         <span class="macro">assert_eq!</span>(event.summary, <span class="string">"John's birthday"</span>);
         <span class="macro">assert_eq!</span>(event.time.year(), Zoned::now().year());
         <span class="macro">assert_eq!</span>(event.time.day(), <span class="number">18</span>);
@@ -452,7 +502,8 @@
     
     <span class="attr">#[test]
     </span><span class="kw">fn </span>with_time_short() {
-        <span class="kw">let </span>event = <span class="string">"John's birthday 18.11. 16"</span>.parse::&lt;NewEvent&gt;().unwrap();
+        <span class="kw">let </span>now = date(<span class="number">2024</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
+        <span class="kw">let </span>event = NewEvent::parse_at_time(<span class="string">"John's birthday 18.11. 16"</span>, now).unwrap();
         <span class="macro">assert_eq!</span>(event.summary, <span class="string">"John's birthday"</span>);
         <span class="macro">assert_eq!</span>(event.time.year(), Zoned::now().year());
         <span class="macro">assert_eq!</span>(event.time.day(), <span class="number">18</span>);
@@ -464,7 +515,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>with_time_long_a() {
-        <span class="kw">let </span>event = <span class="string">"John's birthday 18.11. 16:00"</span>.parse::&lt;NewEvent&gt;().unwrap();
+        <span class="kw">let </span>now = date(<span class="number">2024</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
+        <span class="kw">let </span>event = NewEvent::parse_at_time(<span class="string">"John's birthday 18.11. 16:00"</span>, now).unwrap();
         <span class="macro">assert_eq!</span>(event.summary, <span class="string">"John's birthday"</span>);
         <span class="macro">assert_eq!</span>(event.time.year(), Zoned::now().year());
         <span class="macro">assert_eq!</span>(event.time.day(), <span class="number">18</span>);
@@ -476,7 +528,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>with_time_long_b() {
-        <span class="kw">let </span>event = <span class="string">"John's birthday 18.11. 1:59"</span>.parse::&lt;NewEvent&gt;().unwrap();
+        <span class="kw">let </span>now = date(<span class="number">2024</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
+        <span class="kw">let </span>event = NewEvent::parse_at_time(<span class="string">"John's birthday 18.11. 1:59"</span>, now).unwrap();
         <span class="macro">assert_eq!</span>(event.summary, <span class="string">"John's birthday"</span>);
         <span class="macro">assert_eq!</span>(event.time.year(), Zoned::now().year());
         <span class="macro">assert_eq!</span>(event.time.day(), <span class="number">18</span>);
@@ -488,7 +541,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>trivial_with_location_a() {
-        <span class="kw">let </span>event = <span class="string">"John's birthday 18.11. @ Memory Plaza"</span>.parse::&lt;NewEvent&gt;().unwrap();
+        <span class="kw">let </span>now = date(<span class="number">2024</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
+        <span class="kw">let </span>event = NewEvent::parse_at_time(<span class="string">"John's birthday 18.11. @ Memory Plaza"</span>, now).unwrap();
         <span class="macro">assert_eq!</span>(event.summary, <span class="string">"John's birthday"</span>);
         <span class="macro">assert_eq!</span>(event.time.year(), Zoned::now().year());
         <span class="macro">assert_eq!</span>(event.time.day(), <span class="number">18</span>);
@@ -498,33 +552,33 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>relative_a() {
-        <span class="kw">let </span>event = <span class="string">"John's birthday tomorrow"</span>.parse::&lt;NewEvent&gt;().unwrap();
+        <span class="kw">let </span>now = date(<span class="number">2024</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
+        <span class="kw">let </span>event = NewEvent::parse_at_time(<span class="string">"John's birthday tomorrow"</span>, now).unwrap();
         <span class="macro">assert_eq!</span>(event.summary, <span class="string">"John's birthday"</span>);
-        <span class="kw">let </span>tomorrow = Zoned::now().checked_add(<span class="number">1</span>.day()).unwrap();
-        <span class="macro">assert_eq!</span>(event.time.year(), tomorrow.year());
-        <span class="macro">assert_eq!</span>(event.time.day(), tomorrow.day());
-        <span class="macro">assert_eq!</span>(event.time.month(), tomorrow.month());
+        <span class="macro">assert_eq!</span>(event.time.year(), <span class="number">2024</span>);
+        <span class="macro">assert_eq!</span>(event.time.month(), <span class="number">6</span>);
+        <span class="macro">assert_eq!</span>(event.time.day(), <span class="number">2</span>);
         <span class="macro">assert_eq!</span>(event.location, <span class="prelude-val">None</span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>relative_with_location_a() {
-        <span class="kw">let </span>event = <span class="string">"John's birthday tomorrow @ Tuomiokirkko"</span>.parse::&lt;NewEvent&gt;().unwrap();
+        <span class="kw">let </span>now = date(<span class="number">2024</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
+        <span class="kw">let </span>event = NewEvent::parse_at_time(<span class="string">"John's birthday tomorrow @ Tuomiokirkko"</span>, now).unwrap();
         <span class="macro">assert_eq!</span>(event.summary, <span class="string">"John's birthday"</span>);
-        <span class="kw">let </span>tomorrow = Zoned::now().checked_add(<span class="number">1</span>.day()).unwrap();
-        <span class="macro">assert_eq!</span>(event.time.year(), tomorrow.year());
-        <span class="macro">assert_eq!</span>(event.time.day(), tomorrow.day());
-        <span class="macro">assert_eq!</span>(event.time.month(), tomorrow.month());
+        <span class="macro">assert_eq!</span>(event.time.year(), <span class="number">2024</span>);
+        <span class="macro">assert_eq!</span>(event.time.month(), <span class="number">6</span>);
+        <span class="macro">assert_eq!</span>(event.time.day(), <span class="number">2</span>);
         <span class="macro">assert_eq!</span>(event.location, <span class="prelude-val">Some</span>(<span class="string">"Tuomiokirkko"</span>.to_owned()));
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>relative_with_location_b() {
-        <span class="kw">let </span>event = <span class="string">"John's birthday tomorrow, Temppeliaukion Kirkko"</span>.parse::&lt;NewEvent&gt;().unwrap();
+        <span class="kw">let </span>now = date(<span class="number">2024</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
+        <span class="kw">let </span>event = NewEvent::parse_at_time(<span class="string">"John's birthday tomorrow, Temppeliaukion Kirkko"</span>, now).unwrap();
         <span class="macro">assert_eq!</span>(event.summary, <span class="string">"John's birthday"</span>);
-        <span class="kw">let </span>tomorrow = Zoned::now().checked_add(<span class="number">1</span>.day()).unwrap();
-        <span class="macro">assert_eq!</span>(event.time.year(), tomorrow.year());
-        <span class="macro">assert_eq!</span>(event.time.day(), tomorrow.day());
-        <span class="macro">assert_eq!</span>(event.time.month(), tomorrow.month());
+        <span class="macro">assert_eq!</span>(event.time.year(), <span class="number">2024</span>);
+        <span class="macro">assert_eq!</span>(event.time.month(), <span class="number">6</span>);
+        <span class="macro">assert_eq!</span>(event.time.day(), <span class="number">2</span>);
         <span class="macro">assert_eq!</span>(event.location, <span class="prelude-val">Some</span>(<span class="string">"Temppeliaukion Kirkko"</span>.to_owned()));
     }
 }

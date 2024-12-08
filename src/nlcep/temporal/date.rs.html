@@ -211,14 +211,20 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::str::FromStr;
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::str::FromStr;
 
 <span class="kw">use </span>jiff::{civil::{date, Date}, ToSpan, Zoned};
 
 <span class="kw">use </span><span class="kw">crate</span>::EventParseError;
 
 <span class="kw">pub trait </span>AsDate {
-    <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Date, EventParseError&gt;;
+    <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>, now: Zoned) -&gt; <span class="prelude-ty">Result</span>&lt;Date, EventParseError&gt;;
 }
 
 <span class="attr">#[derive(Debug, PartialEq)]
@@ -244,11 +250,10 @@
     }
 }
 <span class="kw">impl </span>AsDate <span class="kw">for </span>DateRelative {
-    <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Date, EventParseError&gt; {
+    <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>, now: Zoned) -&gt; <span class="prelude-ty">Result</span>&lt;Date, EventParseError&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             DateRelative::Tomorrow(<span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>today = Zoned::now();
-                <span class="kw">let </span>tomorrow = today.checked_add(<span class="number">1</span>.day()).map_err(|_e| EventParseError::AmbiguousTime)<span class="question-mark">?</span>;
+                <span class="kw">let </span>tomorrow = now.checked_add(<span class="number">1</span>.day()).map_err(|_e| EventParseError::AmbiguousTime)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(tomorrow.into())
             },
         }
@@ -285,7 +290,7 @@
 <span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">pub enum </span>DateStructured {
     Ymd(i16, i8, i8),
-    Hms(i8, i8)
+    Ym(i8, i8)
 }
 <span class="kw">impl </span>FromStr <span class="kw">for </span>DateStructured {
     <span class="kw">type </span><span class="prelude-val">Err </span>= ();
@@ -298,16 +303,23 @@
             <span class="kw">let </span>year = year_segment.parse::&lt;i16&gt;().map_err(|_e| ())<span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Ymd(year, month, date));
         };
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hms(month, date))
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Ym(month, date))
     }
 }
 <span class="kw">impl </span>AsDate <span class="kw">for </span>DateStructured {
-    <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Date, EventParseError&gt; {
+    <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>, now: Zoned) -&gt; <span class="prelude-ty">Result</span>&lt;Date, EventParseError&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             DateStructured::Ymd(year, month, day) =&gt; <span class="prelude-val">Ok</span>(date(<span class="kw-2">*</span>year, <span class="kw-2">*</span>month, <span class="kw-2">*</span>day)),
-            DateStructured::Hms(month, day) =&gt; {
-                <span class="kw">let </span>current_year = Zoned::now().year();
-                <span class="prelude-val">Ok</span>(date(current_year, <span class="kw-2">*</span>month, <span class="kw-2">*</span>day))
+            DateStructured::Ym(month, day) =&gt; {
+                <span class="kw">let </span>current_year = now.year();
+                <span class="kw">let </span>current_month = now.month();
+                <span class="kw">let </span>current_day = now.day();
+                <span class="kw">if </span><span class="kw-2">*</span>month &lt; current_month || <span class="kw-2">*</span>month == current_month &amp;&amp; <span class="kw-2">*</span>day &lt; current_day {
+                    <span class="comment">// That date has already passed this year, target next year instead
+                    </span><span class="prelude-val">Ok</span>(date(current_year + <span class="number">1</span>, <span class="kw-2">*</span>month, <span class="kw-2">*</span>day))
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Ok</span>(date(current_year, <span class="kw-2">*</span>month, <span class="kw-2">*</span>day))
+                }
             }
         }
     }
@@ -320,10 +332,10 @@
     Relative(DateRelative)
 }
 <span class="kw">impl </span>AsDate <span class="kw">for </span>DateUnit {
-    <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Date, EventParseError&gt; {
+    <span class="kw">fn </span>as_date(<span class="kw-2">&amp;</span><span class="self">self</span>, now: Zoned) -&gt; <span class="prelude-ty">Result</span>&lt;Date, EventParseError&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            DateUnit::Structured(structured) =&gt; structured.as_date(),
-            DateUnit::Relative(relative) =&gt; relative.as_date(),
+            DateUnit::Structured(structured) =&gt; structured.as_date(now),
+            DateUnit::Relative(relative) =&gt; relative.as_date(now),
         }
     }
 }
@@ -362,21 +374,21 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_date_trivial_month_date_a() {
         <span class="kw">let </span>(unit, start, end) = find_date(<span class="string">"John's birthday 18.11."</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Hms(<span class="number">11</span>, <span class="number">18</span>)));
+        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Ym(<span class="number">11</span>, <span class="number">18</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">16</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">22</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_date_trivial_month_date_b() {
         <span class="kw">let </span>(unit, start, end) = find_date(<span class="string">"Meet with Evelyn 1.12."</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Hms(<span class="number">12</span>, <span class="number">1</span>)));
+        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Ym(<span class="number">12</span>, <span class="number">1</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">17</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">22</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>find_date_trivial_month_date_c() {
         <span class="kw">let </span>(unit, start, end) = find_date(<span class="string">"Meet with Evelyn 12.1."</span>).expect(<span class="string">"parse failed"</span>);
-        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Hms(<span class="number">1</span>, <span class="number">12</span>)));
+        <span class="macro">assert_eq!</span>(unit, DateUnit::Structured(DateStructured::Ym(<span class="number">1</span>, <span class="number">12</span>)));
         <span class="macro">assert_eq!</span>(start, <span class="number">17</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">22</span>);
     }
