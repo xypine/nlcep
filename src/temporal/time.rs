@@ -2,8 +2,10 @@ use std::str::FromStr;
 
 use jiff::civil::Time;
 
+use crate::EventParseError;
+
 pub trait AsTime {
-    fn as_time(&self) -> Time;
+    fn as_time(&self) -> Result<Time, EventParseError>;
 }
 
 /// "Regularly formatted" time formats
@@ -38,11 +40,11 @@ impl FromStr for TimeStructured {
     }
 }
 impl AsTime for TimeStructured {
-    fn as_time(&self) -> Time {
+    fn as_time(&self) -> Result<Time, EventParseError> {
         match self {
-            TimeStructured::H(h) => Time::new(*h, 0, 0, 0).unwrap(),
-            TimeStructured::Hm(h, m) => Time::new(*h, *m, 0, 0).unwrap(),
-            TimeStructured::Hms(h, m, s) => Time::new(*h, *m, *s, 0).unwrap(),
+            TimeStructured::H(h) => Time::new(*h, 0, 0, 0).map_err(|_e| EventParseError::InvalidTime),
+            TimeStructured::Hm(h, m) => Time::new(*h, *m, 0, 0).map_err(|_e| EventParseError::InvalidTime),
+            TimeStructured::Hms(h, m, s) => Time::new(*h, *m, *s, 0).map_err(|_e| EventParseError::InvalidTime),
         }
     }
 }
@@ -52,7 +54,7 @@ pub enum TimeUnit {
     Structured(TimeStructured),
 }
 impl AsTime for TimeUnit {
-    fn as_time(&self) -> Time {
+    fn as_time(&self) -> Result<Time, EventParseError> {
         match self {
             TimeUnit::Structured(structured) => structured.as_time(),
         }
@@ -73,7 +75,12 @@ pub fn find_time(s_after_date: &str) -> Option<(TimeUnit, usize, usize)> {
         }
     }
     start = start.saturating_sub(1);
-    for word in s_after_date.split([' ', ',']) {
+    for word in s_after_date.split([
+        ' ',
+        ',', // Might indicate that the next word is a location
+        '@', // Might indicate that the next word is a location
+        '-'  // Might indicate that the next word is a duration
+    ]) {
         let end = start + word.len();
         if let Ok(unit) = word.parse::<TimeStructured>() {
             return Some((TimeUnit::Structured(unit), start, end));

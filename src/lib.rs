@@ -72,6 +72,8 @@
 )]
 
 pub(crate) mod temporal;
+#[cfg(feature = "wasm")]
+pub mod wasm;
 
 use std::str::FromStr;
 
@@ -79,8 +81,12 @@ use jiff::{civil::DateTime, Span};
 use lazy_regex::regex;
 use temporal::find_datetime;
 
+use serde::{Deserialize, Serialize};
+
 /// Represents a parsed event
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct NewEvent {
     /// Summary of the parsed event
     pub summary: String,
@@ -94,7 +100,9 @@ pub struct NewEvent {
 
 
 /// Contains all possible error variants that may occur while parsing a new event.
-#[derive(Debug, PartialEq, Clone, Copy, thiserror::Error)]
+#[derive(Debug, PartialEq, Clone, Copy, thiserror::Error, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub enum EventParseError {
     /// No valid datetime could be parsed, other details might be valid.
     /// For example:
@@ -130,7 +138,7 @@ impl FromStr for NewEvent {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut summary: Option<String> = None;
         let mut location: Option<String> = None;
-        let (time, time_starts, time_ends) = find_datetime(s).ok_or(EventParseError::MissingTime)?;
+        let (time, time_starts, time_ends) = find_datetime(s)?.ok_or(EventParseError::MissingTime)?;
         let (before_time, _) = s.split_at(time_starts);
         let (_, after_time) = s.split_at(time_ends);
 

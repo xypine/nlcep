@@ -1,13 +1,30 @@
 [package]
 name = "nlcep"
 description = "a library for parsing natural language calendar events"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 authors = ["Elias Eskelinen <elias.eskelinen@pm.me>"]
 repository = "https://github.com/xypine/nlcep"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-jiff = "0.1.15"
-lazy-regex = "3.3.0"
-thiserror = "2.0.5"
+jiff = { version = "0.1", features = ["serde"] }
+lazy-regex = "3.3"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+
+wasm-bindgen = { version = "0.2", optional = true }
+tsify = { version = "0.4", default-features = true, features = ["js"], optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[features]
+default = ["wasm"]
+wasm = ["wasm-bindgen", "tsify", "jiff/js"]
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+lto = true

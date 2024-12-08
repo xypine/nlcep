@@ -2,31 +2,41 @@ use std::str::FromStr;
 
 use jiff::{civil::{date, Date}, ToSpan, Zoned};
 
+use crate::EventParseError;
+
 pub trait AsDate {
-    fn as_date(&self) -> Date;
+    fn as_date(&self) -> Result<Date, EventParseError>;
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DateRelativeLanguage {
+    English,
+    Finnish
 }
 
 /// "Natural language" date formats
 #[derive(Debug, PartialEq)]
 pub enum DateRelative {
-    Tomorrow,
+    Tomorrow(DateRelativeLanguage),
 }
 impl FromStr for DateRelative {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "tomorrow" => Ok(Self::Tomorrow),
+            "tomorrow" => Ok(Self::Tomorrow(DateRelativeLanguage::English)),
+            "huomenna" => Ok(Self::Tomorrow(DateRelativeLanguage::Finnish)),
             _ => Err(())
         }
     }
 }
 impl AsDate for DateRelative {
-    fn as_date(&self) -> Date {
+    fn as_date(&self) -> Result<Date, EventParseError> {
         match self {
-            DateRelative::Tomorrow => {
+            DateRelative::Tomorrow(_) => {
                 let today = Zoned::now();
-                today.checked_add(1.day()).expect("Tomorrow is ambiguous!??").into()
+                let tomorrow = today.checked_add(1.day()).map_err(|_e| EventParseError::AmbiguousTime)?;
+                Ok(tomorrow.into())
             },
         }
     }
@@ -79,12 +89,12 @@ impl FromStr for DateStructured {
     }
 }
 impl AsDate for DateStructured {
-    fn as_date(&self) -> Date {
+    fn as_date(&self) -> Result<Date, EventParseError> {
         match self {
-            DateStructured::Ymd(year, month, day) => date(*year, *month, *day),
+            DateStructured::Ymd(year, month, day) => Ok(date(*year, *month, *day)),
             DateStructured::Hms(month, day) => {
                 let current_year = Zoned::now().year();
-                date(current_year, *month, *day)
+                Ok(date(current_year, *month, *day))
             }
         }
     }
@@ -97,7 +107,7 @@ pub enum DateUnit {
     Relative(DateRelative)
 }
 impl AsDate for DateUnit {
-    fn as_date(&self) -> Date {
+    fn as_date(&self) -> Result<Date, EventParseError> {
         match self {
             DateUnit::Structured(structured) => structured.as_date(),
             DateUnit::Relative(relative) => relative.as_date(),
@@ -167,7 +177,7 @@ mod tests {
     #[test]
     fn find_date_relative_a() {
         let (unit, start, end) = find_date("John's birthday tomorrow").expect("parse failed");
-        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow));
+        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow(DateRelativeLanguage::English)));
         assert_eq!(start, 16);
         assert_eq!(end, 24);
     }
@@ -175,28 +185,28 @@ mod tests {
     #[test]
     fn find_date_whitespace_a() {
         let (unit, start, end) = find_date(" John's birthday tomorrow").expect("parse failed");
-        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow));
+        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow(DateRelativeLanguage::English)));
         assert_eq!(start, 17);
         assert_eq!(end, 25);
     }
     #[test]
     fn find_date_whitespace_b() {
         let (unit, start, end) = find_date("  John's birthday tomorrow ").expect("parse failed");
-        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow));
+        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow(DateRelativeLanguage::English)));
         assert_eq!(start, 18);
         assert_eq!(end, 26);
     }
     #[test]
     fn find_date_whitespace_c() {
         let (unit, start, end) = find_date("John's birthday  tomorrow ").expect("parse failed");
-        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow));
+        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow(DateRelativeLanguage::English)));
         assert_eq!(start, 17);
         assert_eq!(end, 25);
     }
     #[test]
     fn find_date_whitespace_d() {
         let (unit, start, end) = find_date(" John's  birthday   tomorrow ").expect("parse failed");
-        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow));
+        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow(DateRelativeLanguage::English)));
         assert_eq!(start, 20);
         assert_eq!(end, 28);
     }
