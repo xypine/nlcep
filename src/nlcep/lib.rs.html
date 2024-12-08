@@ -255,11 +255,7 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a></pre></div><pre class="rust"><code><span class="doccomment">//! ## Natural Language Calendar Event Parser
+<a href="#257" id="257">257</a></pre></div><pre class="rust"><code><span class="doccomment">//! ## Natural Language Calendar Event Parser
 //! ### About
 //! A library for parsing strings such as "John's birthday 18.11." or "Meeting about new duck quotas tomorrow 11:00 @ A769" into a machine readable format.
 //! 
@@ -274,27 +270,23 @@
 //! ### Usage
 //! The main logic can be accessed by constructing a [`NewEvent`] from a string. For example:
 //! ```rust
+//! # use jiff::{ Zoned, ToSpan }; // nlcep uses jiff for storing dates
+//! # let tomorrow = Zoned::now().checked_add(1.day()).unwrap();
+//! #
 //! // Parse event
 //! let event: nlcep::NewEvent = 
 //!     "Meeting about Q3 duckling quotas tomorrow 11:00, A769"
 //!     .parse()
 //!     .expect("Parsing event failed");
 //!
-//!
-//! // Basic details should be correct
+//! // Check that the details have been parsed correctly :)
 //! assert_eq!(event.summary, "Meeting about Q3 duckling quotas");
 //! assert_eq!(event.location, Some("A769".to_owned()));
-//!
-//! // Let's check that the meeting has been parsed as tomorrow 11:00!
-//! use jiff::{ Zoned, ToSpan }; // nlcep uses jiff for storing dates
-//! let tomorrow = Zoned::now().checked_add(1.day()).unwrap();
-//!
 //! assert_eq!(event.time.year(), tomorrow.year());
 //! assert_eq!(event.time.day(), tomorrow.day());
 //! assert_eq!(event.time.month(), tomorrow.month());
 //! assert_eq!(event.time.hour(), 11);
 //! assert_eq!(event.time.minute(), 0);
-//! 
 //! ```
 </span><span class="attr">#![deny(unsafe_code)]
 #![warn(
