@@ -8,6 +8,11 @@ pub trait AsDate {
     fn as_date(&self, now: Zoned) -> Result<Date, EventParseError>;
 }
 
+trait FromMultiword {
+    /// usize is the number of words matched
+    fn parse_multiword(words: &Vec<String>) -> Option<(Self, usize)> where Self: Sized;
+}
+
 #[derive(Debug, PartialEq)]
 pub enum DateRelativeLanguage {
     English,
@@ -18,24 +23,65 @@ pub enum DateRelativeLanguage {
 #[derive(Debug, PartialEq)]
 pub enum DateRelative {
     Tomorrow(DateRelativeLanguage),
+    Overmorrow(DateRelativeLanguage),
+    Yesterday(DateRelativeLanguage),
 }
 impl FromStr for DateRelative {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "tomorrow" => Ok(Self::Tomorrow(DateRelativeLanguage::English)),
-            "huomenna" => Ok(Self::Tomorrow(DateRelativeLanguage::Finnish)),
+            "yesterday" => Ok(Self::Yesterday(DateRelativeLanguage::English)),
+            "eilen"     => Ok(Self::Yesterday(DateRelativeLanguage::Finnish)),
+
+            "tomorrow"  => Ok(Self::Tomorrow(DateRelativeLanguage::English)),
+            "huomenna"  => Ok(Self::Tomorrow(DateRelativeLanguage::Finnish)),
+
+            "overmorrow" | "day after tomorrow" => Ok(Self::Overmorrow(DateRelativeLanguage::English)),
+            "ylihuomenna"                       => Ok(Self::Overmorrow(DateRelativeLanguage::Finnish)),
+
             _ => Err(())
         }
+    }
+}
+impl FromMultiword for DateRelative {
+    fn parse_multiword(words: &Vec<String>) -> Option<(Self, usize)> where Self: Sized {
+        let check_sequence = |tokens: &[&'static str]| -> Option<()> {
+            let mut iterator = words.iter().rev();
+            let mut assume_next = |token: &'static str| -> Option<()> {
+                let nxt = iterator.next()?;
+                if nxt.as_str() == token {
+                    return Some(());
+                }
+                None
+            };
+            for token in tokens.iter().rev() {
+                assume_next(token)?;
+            }
+            Some(())
+        };
+
+        if check_sequence(&["day", "after", "tomorrow"]).is_some() {
+            return Some((Self::Overmorrow(DateRelativeLanguage::English), 3));
+        }
+
+        None
     }
 }
 impl AsDate for DateRelative {
     fn as_date(&self, now: Zoned) -> Result<Date, EventParseError> {
         match self {
+            DateRelative::Yesterday(_) => {
+                let yesterday = now.checked_sub(1.day()).map_err(|_e| EventParseError::AmbiguousTime)?;
+                Ok(yesterday.into())
+            },
             DateRelative::Tomorrow(_) => {
                 let tomorrow = now.checked_add(1.day()).map_err(|_e| EventParseError::AmbiguousTime)?;
                 Ok(tomorrow.into())
+            },
+            DateRelative::Overmorrow(_) => {
+                let overmorrow = now.checked_add(2.days()).map_err(|_e| EventParseError::AmbiguousTime)?;
+                Ok(overmorrow.into())
             },
         }
     }
@@ -129,13 +175,22 @@ impl AsDate for DateUnit {
 ///     13.04.2020, 1.1.2020
 /// - a relative date, such as:
 ///   - tomorrow
-///   - (not implemented yet) yesterday
+///   - yesterday
 ///   - (not implemented yet) (next/last) (weekday/"context event")
 ///   - (not implemented yet) (weekday) (after/before) ("context event")
 pub fn find_date(s: &str) -> Option<(DateUnit, usize, usize)> {
     let mut start = 0;
+    let mut past_words = vec![];
+    let mut past_words_start_positions = vec![];
     for word in s.split([' ', ',']) {
         let end = start + word.len();
+        past_words.push(word.to_owned());
+        past_words_start_positions.push(start);
+
+        if let Some((unit, words_matched)) = DateRelative::parse_multiword(&past_words) {
+            let start = past_words_start_positions[past_words_start_positions.len() - words_matched];
+            return Some((DateUnit::Relative(unit), start, end));
+        }
         if let Ok(unit) = word.parse::<DateRelative>() {
             return Some((DateUnit::Relative(unit), start, end));
         }
@@ -187,6 +242,27 @@ mod tests {
         assert_eq!(start, 16);
         assert_eq!(end, 24);
     }
+    #[test]
+    fn find_date_relative_b() {
+        let (unit, start, end) = find_date("John's birthday yesterday").expect("parse failed");
+        assert_eq!(unit, DateUnit::Relative(DateRelative::Yesterday(DateRelativeLanguage::English)));
+        assert_eq!(start, 16);
+        assert_eq!(end, 25);
+    }
+    #[test]
+    fn find_date_relative_overmorrow_a() {
+        let (unit, start, end) = find_date("John's birthday overmorrow").expect("parse failed");
+        assert_eq!(unit, DateUnit::Relative(DateRelative::Overmorrow(DateRelativeLanguage::English)));
+        assert_eq!(start, 16);
+        assert_eq!(end, 26);
+    }
+    #[test]
+    fn find_date_relative_overmorrow_b() {
+        let (unit, start, end) = find_date("John's birthday day after tomorrow").expect("parse failed");
+        assert_eq!(unit, DateUnit::Relative(DateRelative::Overmorrow(DateRelativeLanguage::English)));
+        assert_eq!(start, 16);
+        assert_eq!(end, 34);
+    }
 
     #[test]
     fn find_date_whitespace_a() {
@@ -204,10 +280,10 @@ mod tests {
     }
     #[test]
     fn find_date_whitespace_c() {
-        let (unit, start, end) = find_date("John's birthday  tomorrow ").expect("parse failed");
-        assert_eq!(unit, DateUnit::Relative(DateRelative::Tomorrow(DateRelativeLanguage::English)));
+        let (unit, start, end) = find_date("John's birthday  yesterday ").expect("parse failed");
+        assert_eq!(unit, DateUnit::Relative(DateRelative::Yesterday(DateRelativeLanguage::English)));
         assert_eq!(start, 17);
-        assert_eq!(end, 25);
+        assert_eq!(end, 26);
     }
     #[test]
     fn find_date_whitespace_d() {
