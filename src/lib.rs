@@ -13,27 +13,23 @@
 //! ### Usage
 //! The main logic can be accessed by constructing a [`NewEvent`] from a string. For example:
 //! ```rust
+//! # use jiff::{ Zoned, ToSpan }; // nlcep uses jiff for storing dates
+//! # let tomorrow = Zoned::now().checked_add(1.day()).unwrap();
+//! #
 //! // Parse event
 //! let event: nlcep::NewEvent = 
 //!     "Meeting about Q3 duckling quotas tomorrow 11:00, A769"
 //!     .parse()
 //!     .expect("Parsing event failed");
 //!
-//!
-//! // Basic details should be correct
+//! // Check that the details have been parsed correctly :)
 //! assert_eq!(event.summary, "Meeting about Q3 duckling quotas");
 //! assert_eq!(event.location, Some("A769".to_owned()));
-//!
-//! // Let's check that the meeting has been parsed as tomorrow 11:00!
-//! use jiff::{ Zoned, ToSpan }; // nlcep uses jiff for storing dates
-//! let tomorrow = Zoned::now().checked_add(1.day()).unwrap();
-//!
 //! assert_eq!(event.time.year(), tomorrow.year());
 //! assert_eq!(event.time.day(), tomorrow.day());
 //! assert_eq!(event.time.month(), tomorrow.month());
 //! assert_eq!(event.time.hour(), 11);
 //! assert_eq!(event.time.minute(), 0);
-//! 
 //! ```
 #![deny(unsafe_code)]
 #![warn(
