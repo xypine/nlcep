@@ -114,4 +114,44 @@ mod tests {
         assert_eq!(dt.minute(), 30);
         assert_eq!(dt.second(), 12);
     }
+
+    #[test]
+    fn datetime_relative_weekday_a() {
+        let now = jiff::civil::date(2024, 12, 8).intz("UTC").unwrap();
+        let (dt, start, end) = find_datetime("next monday 0:30:12", now).expect("parse failed").expect("no parse result");
+        assert_eq!(start, 0);
+        assert_eq!(end, 19);
+        assert_eq!(dt.year(), 2024);
+        assert_eq!(dt.month(), 12);
+        assert_eq!(dt.day(), 9);
+        assert_eq!(dt.hour(), 0);
+        assert_eq!(dt.minute(), 30);
+        assert_eq!(dt.second(), 12);
+    }
+    #[test]
+    fn datetime_relative_weekday_b() {
+        let now = jiff::civil::date(2024, 12, 8).intz("UTC").unwrap();
+        let (dt, start, end) = find_datetime("last sunday 0:30:12", now).expect("parse failed").expect("no parse result");
+        assert_eq!(start, 0);
+        assert_eq!(end, 19);
+        assert_eq!(dt.year(), 2024);
+        assert_eq!(dt.month(), 12);
+        assert_eq!(dt.day(), 1);
+        assert_eq!(dt.hour(), 0);
+        assert_eq!(dt.minute(), 30);
+        assert_eq!(dt.second(), 12);
+    }
+    #[test]
+    fn datetime_relative_weekday_c() {
+        let now = jiff::civil::date(2024, 12, 8).intz("UTC").unwrap();
+        let (dt, start, end) = find_datetime("last wednesday 0:30:12", now).expect("parse failed").expect("no parse result");
+        assert_eq!(start, 0);
+        assert_eq!(end, 22);
+        assert_eq!(dt.year(), 2024);
+        assert_eq!(dt.month(), 12);
+        assert_eq!(dt.day(), 4);
+        assert_eq!(dt.hour(), 0);
+        assert_eq!(dt.minute(), 30);
+        assert_eq!(dt.second(), 12);
+    }
 }

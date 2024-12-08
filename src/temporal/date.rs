@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use jiff::{civil::{date, Date}, ToSpan, Zoned};
+use strum::IntoEnumIterator;
 
 use crate::EventParseError;
 
@@ -19,12 +20,39 @@ pub enum DateRelativeLanguage {
     Finnish
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, strum_macros::Display, strum_macros::EnumIter, strum_macros::IntoStaticStr)]
+pub enum DateRelativeWeekday {
+    Monday,
+    Tuesday,
+    Wednesday,
+    Thurdsday,
+    Friday,
+    Saturday,
+    Sunday
+}
+impl Into<jiff::civil::Weekday> for DateRelativeWeekday {
+    fn into(self) -> jiff::civil::Weekday {
+        match self {
+            DateRelativeWeekday::Monday     => jiff::civil::Weekday::Monday,
+            DateRelativeWeekday::Tuesday    => jiff::civil::Weekday::Tuesday,
+            DateRelativeWeekday::Wednesday  => jiff::civil::Weekday::Wednesday,
+            DateRelativeWeekday::Thurdsday  => jiff::civil::Weekday::Thursday,
+            DateRelativeWeekday::Friday     => jiff::civil::Weekday::Friday,
+            DateRelativeWeekday::Saturday   => jiff::civil::Weekday::Saturday,
+            DateRelativeWeekday::Sunday     => jiff::civil::Weekday::Sunday,
+        }
+    }
+}
+
 /// "Natural language" date formats
 #[derive(Debug, PartialEq)]
 pub enum DateRelative {
+    LastWeekday(DateRelativeLanguage, DateRelativeWeekday),
+    Yesterday(DateRelativeLanguage),
+    Today(DateRelativeLanguage),
     Tomorrow(DateRelativeLanguage),
     Overmorrow(DateRelativeLanguage),
-    Yesterday(DateRelativeLanguage),
+    NextWeekday(DateRelativeLanguage, DateRelativeWeekday)
 }
 impl FromStr for DateRelative {
     type Err = ();
@@ -33,6 +61,9 @@ impl FromStr for DateRelative {
         match s.to_lowercase().as_str() {
             "yesterday" => Ok(Self::Yesterday(DateRelativeLanguage::English)),
             "eilen"     => Ok(Self::Yesterday(DateRelativeLanguage::Finnish)),
+
+            "today" => Ok(Self::Today(DateRelativeLanguage::English)),
+            "tänään" => Ok(Self::Today(DateRelativeLanguage::Finnish)),
 
             "tomorrow"  => Ok(Self::Tomorrow(DateRelativeLanguage::English)),
             "huomenna"  => Ok(Self::Tomorrow(DateRelativeLanguage::Finnish)),
@@ -50,7 +81,7 @@ impl FromMultiword for DateRelative {
             let mut iterator = words.iter().rev();
             let mut assume_next = |token: &'static str| -> Option<()> {
                 let nxt = iterator.next()?;
-                if nxt.as_str() == token {
+                if nxt.as_str() == token.to_lowercase() {
                     return Some(());
                 }
                 None
@@ -65,15 +96,34 @@ impl FromMultiword for DateRelative {
             return Some((Self::Overmorrow(DateRelativeLanguage::English), 3));
         }
 
+        for weekday in DateRelativeWeekday::iter() {
+            if check_sequence(&["next", weekday.into()]).is_some() {
+                return Some((Self::NextWeekday(DateRelativeLanguage::English, weekday), 2));
+            }
+        }
+
+        for weekday in DateRelativeWeekday::iter() {
+            if check_sequence(&["last", weekday.into()]).is_some() {
+                return Some((Self::LastWeekday(DateRelativeLanguage::English, weekday), 2));
+            }
+        }
+
         None
     }
 }
 impl AsDate for DateRelative {
     fn as_date(&self, now: Zoned) -> Result<Date, EventParseError> {
         match self {
+            DateRelative::LastWeekday(_, weekday) => {
+                let next_such_date = now.nth_weekday(-1, (*weekday).into()).map_err(|_e| EventParseError::AmbiguousTime)?;
+                Ok(next_such_date.into())
+            },
             DateRelative::Yesterday(_) => {
                 let yesterday = now.checked_sub(1.day()).map_err(|_e| EventParseError::AmbiguousTime)?;
                 Ok(yesterday.into())
+            },
+            DateRelative::Today(_) => {
+                Ok(now.into())
             },
             DateRelative::Tomorrow(_) => {
                 let tomorrow = now.checked_add(1.day()).map_err(|_e| EventParseError::AmbiguousTime)?;
@@ -82,6 +132,10 @@ impl AsDate for DateRelative {
             DateRelative::Overmorrow(_) => {
                 let overmorrow = now.checked_add(2.days()).map_err(|_e| EventParseError::AmbiguousTime)?;
                 Ok(overmorrow.into())
+            },
+            DateRelative::NextWeekday(_, weekday) => {
+                let next_such_date = now.nth_weekday(1, (*weekday).into()).map_err(|_e| EventParseError::AmbiguousTime)?;
+                Ok(next_such_date.into())
             },
         }
     }
@@ -176,6 +230,7 @@ impl AsDate for DateUnit {
 /// - a relative date, such as:
 ///   - tomorrow
 ///   - yesterday
+///   - (next/last) (weekday)
 ///   - (not implemented yet) (next/last) (weekday/"context event")
 ///   - (not implemented yet) (weekday) (after/before) ("context event")
 pub fn find_date(s: &str) -> Option<(DateUnit, usize, usize)> {
@@ -262,6 +317,21 @@ mod tests {
         assert_eq!(unit, DateUnit::Relative(DateRelative::Overmorrow(DateRelativeLanguage::English)));
         assert_eq!(start, 16);
         assert_eq!(end, 34);
+    }
+
+    #[test]
+    fn find_date_relative_weekday_a() {
+        let (unit, start, end) = find_date("John's birthday next monday").expect("parse failed");
+        assert_eq!(unit, DateUnit::Relative(DateRelative::NextWeekday(DateRelativeLanguage::English, DateRelativeWeekday::Monday)));
+        assert_eq!(start, 16);
+        assert_eq!(end, 27);
+    }
+    #[test]
+    fn find_date_relative_weekday_b() {
+        let (unit, start, end) = find_date("John's birthday next wednesday").expect("parse failed");
+        assert_eq!(unit, DateUnit::Relative(DateRelative::NextWeekday(DateRelativeLanguage::English, DateRelativeWeekday::Wednesday)));
+        assert_eq!(start, 16);
+        assert_eq!(end, 30);
     }
 
     #[test]
