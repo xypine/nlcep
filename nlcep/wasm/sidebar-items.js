@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["parse","set_panic_hook"],"struct":["EventResult"]};

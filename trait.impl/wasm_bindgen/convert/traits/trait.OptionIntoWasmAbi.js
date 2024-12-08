@@ -1,9 +1,0 @@
-(function() {
-    var implementors = Object.fromEntries([["nlcep",[["impl <a class=\"trait\" href=\"https://docs.rs/wasm-bindgen/0.2/wasm_bindgen/convert/traits/trait.OptionIntoWasmAbi.html\" title=\"trait wasm_bindgen::convert::traits::OptionIntoWasmAbi\">OptionIntoWasmAbi</a> for <a class=\"enum\" href=\"nlcep/enum.EventParseError.html\" title=\"enum nlcep::EventParseError\">EventParseError</a><div class=\"where\">where\n    Self: <a class=\"trait\" href=\"https://docs.rs/serde/1.0.215/serde/ser/trait.Serialize.html\" title=\"trait serde::ser::Serialize\">Serialize</a>,</div>"],["impl <a class=\"trait\" href=\"https://docs.rs/wasm-bindgen/0.2/wasm_bindgen/convert/traits/trait.OptionIntoWasmAbi.html\" title=\"trait wasm_bindgen::convert::traits::OptionIntoWasmAbi\">OptionIntoWasmAbi</a> for <a class=\"struct\" href=\"nlcep/struct.NewEvent.html\" title=\"struct nlcep::NewEvent\">NewEvent</a><div class=\"where\">where\n    Self: <a class=\"trait\" href=\"https://docs.rs/serde/1.0.215/serde/ser/trait.Serialize.html\" title=\"trait serde::ser::Serialize\">Serialize</a>,</div>"],["impl <a class=\"trait\" href=\"https://docs.rs/wasm-bindgen/0.2/wasm_bindgen/convert/traits/trait.OptionIntoWasmAbi.html\" title=\"trait wasm_bindgen::convert::traits::OptionIntoWasmAbi\">OptionIntoWasmAbi</a> for <a class=\"struct\" href=\"nlcep/wasm/struct.EventResult.html\" title=\"struct nlcep::wasm::EventResult\">EventResult</a><div class=\"where\">where\n    Self: <a class=\"trait\" href=\"https://docs.rs/serde/1.0.215/serde/ser/trait.Serialize.html\" title=\"trait serde::ser::Serialize\">Serialize</a>,</div>"]]]]);
-    if (window.register_implementors) {
-        window.register_implementors(implementors);
-    } else {
-        window.pending_implementors = implementors;
-    }
-})()
-//{"start":57,"fragment_lengths":[1561]}

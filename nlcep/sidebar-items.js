@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["EventParseError"],"mod":["wasm"],"struct":["NewEvent"]};
+window.SIDEBAR_ITEMS = {"enum":["EventParseError"],"struct":["NewEvent"]};
