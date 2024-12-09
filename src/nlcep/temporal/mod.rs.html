@@ -155,11 +155,18 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a></pre></div><pre class="rust"><code><span class="doccomment">//! Used internally by library for parsing date and time information from strings
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a></pre></div><pre class="rust"><code><span class="doccomment">//! Used internally by library for parsing date and time information from strings
 </span><span class="attr">#![allow(clippy::missing_docs_in_private_items)]
 
 </span><span class="kw">use </span>date::find_date;
-<span class="kw">use </span>jiff::{civil::DateTime, Zoned};
+<span class="kw">use </span>jiff::{civil::{Date, Time}, Zoned};
 
 <span class="kw">pub mod </span>date;
 <span class="kw">pub mod </span>time;
@@ -174,21 +181,21 @@
 /// See [`find_date`] and [`find_time`] for more information on accepted formatting of the date or
 /// time.
 ///
-/// Returns the interpreted [`DateTime`] and the start, end indices of
+/// Returns the interpreted [`DateTime`], allday?, and the start, end indices of
 /// the original string where the datetime was parsed from.
-</span><span class="kw">pub fn </span>find_datetime(s: <span class="kw-2">&amp;</span>str, now: Zoned) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(DateTime, usize, usize)&gt;, EventParseError&gt; {
+</span><span class="kw">pub fn </span>find_datetime(s: <span class="kw-2">&amp;</span>str, now: Zoned) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(Date, <span class="prelude-ty">Option</span>&lt;Time&gt;, usize, usize)&gt;, EventParseError&gt; {
     <span class="kw">if let </span><span class="prelude-val">Some</span>((date, date_start, date_end)) = find_date(s) {
         <span class="kw">let </span>(<span class="kw">_</span>, s_after_date) = s.split_at(date_end);
 
         <span class="kw">let </span>date = date.as_date(now)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>end = date_end;
-        <span class="kw">let </span>dt = <span class="kw">if let </span><span class="prelude-val">Some</span>((time, _time_start, time_end)) = find_time(s_after_date) {
+        <span class="kw">let </span>time = <span class="kw">if let </span><span class="prelude-val">Some</span>((time, _time_start, time_end)) = find_time(s_after_date) {
             end += time_end;
-            date.to_datetime(time.as_time()<span class="question-mark">?</span>)
+            <span class="prelude-val">Some</span>(time.as_time()<span class="question-mark">?</span>)
         } <span class="kw">else </span>{
-            date.into()
-        };
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((dt, date_start, end)));
+            <span class="prelude-val">None
+        </span>};
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((date, time, date_start, end)));
     }
     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 }
@@ -200,116 +207,123 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>date_a() {
         <span class="kw">let </span>now = jiff::civil::date(<span class="number">2000</span>, <span class="number">1</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"21.11.2004"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
+        <span class="kw">let </span>(date, time, start, end) = find_datetime(<span class="string">"21.11.2004"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">10</span>);
-        <span class="macro">assert_eq!</span>(dt.year(), <span class="number">2004</span>);
-        <span class="macro">assert_eq!</span>(dt.month(), <span class="number">11</span>);
-        <span class="macro">assert_eq!</span>(dt.day(), <span class="number">21</span>);
-        <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(dt.minute(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(date.year(), <span class="number">2004</span>);
+        <span class="macro">assert_eq!</span>(date.month(), <span class="number">11</span>);
+        <span class="macro">assert_eq!</span>(date.day(), <span class="number">21</span>);
+        <span class="macro">assert!</span>(time.is_none());
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_a() {
         <span class="kw">let </span>now = jiff::civil::date(<span class="number">2000</span>, <span class="number">1</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.9.1999 11:00"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
+        <span class="kw">let </span>(date, time, start, end) = find_datetime(<span class="string">"22.9.1999 11:00"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">15</span>);
-        <span class="macro">assert_eq!</span>(dt.year(), <span class="number">1999</span>);
-        <span class="macro">assert_eq!</span>(dt.month(), <span class="number">9</span>);
-        <span class="macro">assert_eq!</span>(dt.day(), <span class="number">22</span>);
-        <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">11</span>);
-        <span class="macro">assert_eq!</span>(dt.minute(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(date.year(), <span class="number">1999</span>);
+        <span class="macro">assert_eq!</span>(date.month(), <span class="number">9</span>);
+        <span class="macro">assert_eq!</span>(date.day(), <span class="number">22</span>);
+        <span class="kw">let </span>time = time.unwrap();
+        <span class="macro">assert_eq!</span>(time.hour(), <span class="number">11</span>);
+        <span class="macro">assert_eq!</span>(time.minute(), <span class="number">0</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_b() {
         <span class="kw">let </span>now = jiff::civil::date(<span class="number">2000</span>, <span class="number">1</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.9.1999 11"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
+        <span class="kw">let </span>(date, time, start, end) = find_datetime(<span class="string">"22.9.1999 11"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">12</span>);
-        <span class="macro">assert_eq!</span>(dt.year(), <span class="number">1999</span>);
-        <span class="macro">assert_eq!</span>(dt.month(), <span class="number">9</span>);
-        <span class="macro">assert_eq!</span>(dt.day(), <span class="number">22</span>);
-        <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">11</span>);
-        <span class="macro">assert_eq!</span>(dt.minute(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(date.year(), <span class="number">1999</span>);
+        <span class="macro">assert_eq!</span>(date.month(), <span class="number">9</span>);
+        <span class="macro">assert_eq!</span>(date.day(), <span class="number">22</span>);
+        <span class="kw">let </span>time = time.unwrap();
+        <span class="macro">assert_eq!</span>(time.hour(), <span class="number">11</span>);
+        <span class="macro">assert_eq!</span>(time.minute(), <span class="number">0</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_relative_year_a() {
         <span class="kw">let </span>now = jiff::civil::date(<span class="number">2000</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.9. 11"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
+        <span class="kw">let </span>(date, time, start, end) = find_datetime(<span class="string">"22.9. 11"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">8</span>);
-        <span class="macro">assert_eq!</span>(dt.year(), <span class="number">2000</span>);
-        <span class="macro">assert_eq!</span>(dt.month(), <span class="number">9</span>);
-        <span class="macro">assert_eq!</span>(dt.day(), <span class="number">22</span>);
-        <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">11</span>);
-        <span class="macro">assert_eq!</span>(dt.minute(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(date.year(), <span class="number">2000</span>);
+        <span class="macro">assert_eq!</span>(date.month(), <span class="number">9</span>);
+        <span class="macro">assert_eq!</span>(date.day(), <span class="number">22</span>);
+        <span class="kw">let </span>time = time.unwrap();
+        <span class="macro">assert_eq!</span>(time.hour(), <span class="number">11</span>);
+        <span class="macro">assert_eq!</span>(time.minute(), <span class="number">0</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_relative_year_b() {
         <span class="kw">let </span>now = jiff::civil::date(<span class="number">2000</span>, <span class="number">6</span>, <span class="number">1</span>).intz(<span class="string">"UTC"</span>).unwrap();
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"22.1. 11"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
+        <span class="kw">let </span>(date, time, start, end) = find_datetime(<span class="string">"22.1. 11"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">8</span>);
-        <span class="macro">assert_eq!</span>(dt.year(), <span class="number">2001</span>);
-        <span class="macro">assert_eq!</span>(dt.month(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(dt.day(), <span class="number">22</span>);
-        <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">11</span>);
-        <span class="macro">assert_eq!</span>(dt.minute(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(date.year(), <span class="number">2001</span>);
+        <span class="macro">assert_eq!</span>(date.month(), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(date.day(), <span class="number">22</span>);
+        <span class="kw">let </span>time = time.unwrap();
+        <span class="macro">assert_eq!</span>(time.hour(), <span class="number">11</span>);
+        <span class="macro">assert_eq!</span>(time.minute(), <span class="number">0</span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_relative() {
         <span class="kw">let </span>now = jiff::civil::date(<span class="number">2000</span>, <span class="number">1</span>, <span class="number">2</span>).intz(<span class="string">"UTC"</span>).unwrap();
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"tomorrow 0:30:12"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
+        <span class="kw">let </span>(date, time, start, end) = find_datetime(<span class="string">"tomorrow 0:30:12"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">16</span>);
-        <span class="macro">assert_eq!</span>(dt.year(), <span class="number">2000</span>);
-        <span class="macro">assert_eq!</span>(dt.month(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(dt.day(), <span class="number">3</span>);
-        <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(dt.minute(), <span class="number">30</span>);
-        <span class="macro">assert_eq!</span>(dt.second(), <span class="number">12</span>);
+        <span class="macro">assert_eq!</span>(date.year(), <span class="number">2000</span>);
+        <span class="macro">assert_eq!</span>(date.month(), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(date.day(), <span class="number">3</span>);
+        <span class="kw">let </span>time = time.unwrap();
+        <span class="macro">assert_eq!</span>(time.hour(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(time.minute(), <span class="number">30</span>);
+        <span class="macro">assert_eq!</span>(time.second(), <span class="number">12</span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_relative_weekday_a() {
         <span class="kw">let </span>now = jiff::civil::date(<span class="number">2024</span>, <span class="number">12</span>, <span class="number">8</span>).intz(<span class="string">"UTC"</span>).unwrap();
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"next monday 0:30:12"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
+        <span class="kw">let </span>(date, time, start, end) = find_datetime(<span class="string">"next monday 0:30:12"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">19</span>);
-        <span class="macro">assert_eq!</span>(dt.year(), <span class="number">2024</span>);
-        <span class="macro">assert_eq!</span>(dt.month(), <span class="number">12</span>);
-        <span class="macro">assert_eq!</span>(dt.day(), <span class="number">9</span>);
-        <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(dt.minute(), <span class="number">30</span>);
-        <span class="macro">assert_eq!</span>(dt.second(), <span class="number">12</span>);
+        <span class="macro">assert_eq!</span>(date.year(), <span class="number">2024</span>);
+        <span class="macro">assert_eq!</span>(date.month(), <span class="number">12</span>);
+        <span class="macro">assert_eq!</span>(date.day(), <span class="number">9</span>);
+        <span class="kw">let </span>time = time.unwrap();
+        <span class="macro">assert_eq!</span>(time.hour(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(time.minute(), <span class="number">30</span>);
+        <span class="macro">assert_eq!</span>(time.second(), <span class="number">12</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_relative_weekday_b() {
         <span class="kw">let </span>now = jiff::civil::date(<span class="number">2024</span>, <span class="number">12</span>, <span class="number">8</span>).intz(<span class="string">"UTC"</span>).unwrap();
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"last sunday 0:30:12"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
+        <span class="kw">let </span>(date, time, start, end) = find_datetime(<span class="string">"last sunday 0:30:12"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">19</span>);
-        <span class="macro">assert_eq!</span>(dt.year(), <span class="number">2024</span>);
-        <span class="macro">assert_eq!</span>(dt.month(), <span class="number">12</span>);
-        <span class="macro">assert_eq!</span>(dt.day(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(dt.minute(), <span class="number">30</span>);
-        <span class="macro">assert_eq!</span>(dt.second(), <span class="number">12</span>);
+        <span class="macro">assert_eq!</span>(date.year(), <span class="number">2024</span>);
+        <span class="macro">assert_eq!</span>(date.month(), <span class="number">12</span>);
+        <span class="macro">assert_eq!</span>(date.day(), <span class="number">1</span>);
+        <span class="kw">let </span>time = time.unwrap();
+        <span class="macro">assert_eq!</span>(time.hour(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(time.minute(), <span class="number">30</span>);
+        <span class="macro">assert_eq!</span>(time.second(), <span class="number">12</span>);
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>datetime_relative_weekday_c() {
         <span class="kw">let </span>now = jiff::civil::date(<span class="number">2024</span>, <span class="number">12</span>, <span class="number">8</span>).intz(<span class="string">"UTC"</span>).unwrap();
-        <span class="kw">let </span>(dt, start, end) = find_datetime(<span class="string">"last wednesday 0:30:12"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
+        <span class="kw">let </span>(date, time, start, end) = find_datetime(<span class="string">"last wednesday 0:30:12"</span>, now).expect(<span class="string">"parse failed"</span>).expect(<span class="string">"no parse result"</span>);
         <span class="macro">assert_eq!</span>(start, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(end, <span class="number">22</span>);
-        <span class="macro">assert_eq!</span>(dt.year(), <span class="number">2024</span>);
-        <span class="macro">assert_eq!</span>(dt.month(), <span class="number">12</span>);
-        <span class="macro">assert_eq!</span>(dt.day(), <span class="number">4</span>);
-        <span class="macro">assert_eq!</span>(dt.hour(), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(dt.minute(), <span class="number">30</span>);
-        <span class="macro">assert_eq!</span>(dt.second(), <span class="number">12</span>);
+        <span class="macro">assert_eq!</span>(date.year(), <span class="number">2024</span>);
+        <span class="macro">assert_eq!</span>(date.month(), <span class="number">12</span>);
+        <span class="macro">assert_eq!</span>(date.day(), <span class="number">4</span>);
+        <span class="kw">let </span>time = time.unwrap();
+        <span class="macro">assert_eq!</span>(time.hour(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(time.minute(), <span class="number">30</span>);
+        <span class="macro">assert_eq!</span>(time.second(), <span class="number">12</span>);
     }
 }
 </code></pre></div></section></main></body></html>

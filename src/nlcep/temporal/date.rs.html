@@ -595,9 +595,9 @@
 /// - a relative date, such as:
 ///   - tomorrow
 ///   - yesterday
-///   - (next/last) (weekday)
-///   - (not implemented yet) (next/last) (weekday/"context event")
-///   - (not implemented yet) (weekday) (after/before) ("context event")
+///   - ("next"/"last") (weekday)
+///   - (not implemented yet) ("next"/"last") (context event)
+///   - (not implemented yet) (weekday/"day") ("after"/"before") (context event)
 </span><span class="kw">pub fn </span>find_date(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;(DateUnit, usize, usize)&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>start = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>past_words = <span class="macro">vec!</span>[];
