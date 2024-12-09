@@ -25,11 +25,12 @@
 //! // Check that the details have been parsed correctly :)
 //! assert_eq!(event.summary, "Meeting about Q3 duckling quotas");
 //! assert_eq!(event.location, Some("A769".to_owned()));
-//! assert_eq!(event.time.year(), tomorrow.year());
-//! assert_eq!(event.time.day(), tomorrow.day());
-//! assert_eq!(event.time.month(), tomorrow.month());
-//! assert_eq!(event.time.hour(), 11);
-//! assert_eq!(event.time.minute(), 0);
+//! assert_eq!(event.date.year(), tomorrow.year());
+//! assert_eq!(event.date.day(), tomorrow.day());
+//! assert_eq!(event.date.month(), tomorrow.month());
+//! let time = event.time.unwrap();
+//! assert_eq!(time.hour(), 11);
+//! assert_eq!(time.minute(), 0);
 //! ```
 //!
 //! You can also use [`NewEvent::parse_at_time`] to supply an alternative basis for relative time
@@ -43,9 +44,9 @@
 //! let event =
 //!     nlcep::NewEvent::parse_at_time("water the plants tomorrow", now)
 //!     .expect("Parsing event failed");
-//! assert_eq!(event.time.year(), 2024);
-//! assert_eq!(event.time.month(), 7);
-//! assert_eq!(event.time.day(), 11 + 1);
+//! assert_eq!(event.date.year(), 2024);
+//! assert_eq!(event.date.month(), 7);
+//! assert_eq!(event.date.day(), 11 + 1);
 //! ```
 #![deny(unsafe_code)]
 #![warn(
@@ -90,10 +91,12 @@
 pub(crate) mod temporal;
 #[cfg(feature = "wasm")]
 pub mod wasm;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use std::str::FromStr;
 
-use jiff::{civil::DateTime, Span, Zoned};
+use jiff::{civil::{Date, DateTime, Time}, Span, Zoned};
 use lazy_regex::regex;
 use temporal::find_datetime;
 
@@ -106,8 +109,8 @@ use serde::{Deserialize, Serialize};
 pub struct NewEvent {
     /// Summary of the parsed event
     pub summary: String,
-    /// When the event takes place, stored without a timezone (constructed from user input as-is)
-    pub time: DateTime,
+    pub date: Date,
+    pub time: Option<Time>,
     /// Where the event takes place, not mandatory
     pub location: Option<String>,
     /// For how long the event goes on, not mandatory
@@ -118,7 +121,7 @@ impl NewEvent {
     pub fn parse_at_time(s: &str, now: Zoned) -> Result<Self, EventParseError> {
         let mut summary: Option<String> = None;
         let mut location: Option<String> = None;
-        let (time, time_starts, time_ends) = find_datetime(s, now)?.ok_or(EventParseError::MissingTime)?;
+        let (date, time, time_starts, time_ends) = find_datetime(s, now)?.ok_or(EventParseError::MissingTime)?;
         let (before_time, _) = s.split_at(time_starts);
         let (_, after_time) = s.split_at(time_ends);
 
@@ -135,10 +138,19 @@ impl NewEvent {
 
         Ok(Self {
             summary: summary.ok_or(EventParseError::MissingSummary)?,
+            date,
             time,
             location,
             duration: None
         })
+    }
+
+    pub fn datetime(&self) -> DateTime {
+        if let Some(time) = self.time {
+            self.date.to_datetime(time)
+        } else {
+            self.date.into()
+        }
     }
 }
 
@@ -201,10 +213,10 @@ mod tests {
         let now = date(2024, 6, 1).intz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11.", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.time.year(), Zoned::now().year());
-        assert_eq!(event.time.day(), 18);
-        assert_eq!(event.time.month(), 11);
-        assert_eq!(event.time.hour(), 0);
+        assert_eq!(event.datetime().year(), Zoned::now().year());
+        assert_eq!(event.datetime().day(), 18);
+        assert_eq!(event.datetime().month(), 11);
+        assert_eq!(event.datetime().hour(), 0);
         assert_eq!(event.location, None);
     }
     
@@ -213,11 +225,11 @@ mod tests {
         let now = date(2024, 6, 1).intz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. 16", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.time.year(), Zoned::now().year());
-        assert_eq!(event.time.day(), 18);
-        assert_eq!(event.time.month(), 11);
-        assert_eq!(event.time.hour(), 16);
-        assert_eq!(event.time.minute(), 0);
+        assert_eq!(event.datetime().year(), Zoned::now().year());
+        assert_eq!(event.datetime().day(), 18);
+        assert_eq!(event.datetime().month(), 11);
+        assert_eq!(event.datetime().hour(), 16);
+        assert_eq!(event.datetime().minute(), 0);
         assert_eq!(event.location, None);
     }
 
@@ -226,11 +238,11 @@ mod tests {
         let now = date(2024, 6, 1).intz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. 16:00", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.time.year(), Zoned::now().year());
-        assert_eq!(event.time.day(), 18);
-        assert_eq!(event.time.month(), 11);
-        assert_eq!(event.time.hour(), 16);
-        assert_eq!(event.time.minute(), 0);
+        assert_eq!(event.datetime().year(), Zoned::now().year());
+        assert_eq!(event.datetime().day(), 18);
+        assert_eq!(event.datetime().month(), 11);
+        assert_eq!(event.datetime().hour(), 16);
+        assert_eq!(event.datetime().minute(), 0);
         assert_eq!(event.location, None);
     }
 
@@ -239,11 +251,11 @@ mod tests {
         let now = date(2024, 6, 1).intz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. 1:59", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.time.year(), Zoned::now().year());
-        assert_eq!(event.time.day(), 18);
-        assert_eq!(event.time.month(), 11);
-        assert_eq!(event.time.hour(), 1);
-        assert_eq!(event.time.minute(), 59);
+        assert_eq!(event.datetime().year(), Zoned::now().year());
+        assert_eq!(event.datetime().day(), 18);
+        assert_eq!(event.datetime().month(), 11);
+        assert_eq!(event.datetime().hour(), 1);
+        assert_eq!(event.datetime().minute(), 59);
         assert_eq!(event.location, None);
     }
 
@@ -252,9 +264,9 @@ mod tests {
         let now = date(2024, 6, 1).intz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. @ Memory Plaza", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.time.year(), Zoned::now().year());
-        assert_eq!(event.time.day(), 18);
-        assert_eq!(event.time.month(), 11);
+        assert_eq!(event.date.year(), Zoned::now().year());
+        assert_eq!(event.date.day(), 18);
+        assert_eq!(event.date.month(), 11);
         assert_eq!(event.location, Some("Memory Plaza".to_owned()));
     }
 
@@ -263,9 +275,9 @@ mod tests {
         let now = date(2024, 6, 1).intz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday tomorrow", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.time.year(), 2024);
-        assert_eq!(event.time.month(), 6);
-        assert_eq!(event.time.day(), 2);
+        assert_eq!(event.date.year(), 2024);
+        assert_eq!(event.date.month(), 6);
+        assert_eq!(event.date.day(), 2);
         assert_eq!(event.location, None);
     }
 
@@ -274,9 +286,9 @@ mod tests {
         let now = date(2024, 6, 1).intz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday tomorrow @ Tuomiokirkko", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.time.year(), 2024);
-        assert_eq!(event.time.month(), 6);
-        assert_eq!(event.time.day(), 2);
+        assert_eq!(event.date.year(), 2024);
+        assert_eq!(event.date.month(), 6);
+        assert_eq!(event.date.day(), 2);
         assert_eq!(event.location, Some("Tuomiokirkko".to_owned()));
     }
     #[test]
@@ -284,9 +296,9 @@ mod tests {
         let now = date(2024, 6, 1).intz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday tomorrow, Temppeliaukion Kirkko", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.time.year(), 2024);
-        assert_eq!(event.time.month(), 6);
-        assert_eq!(event.time.day(), 2);
+        assert_eq!(event.date.year(), 2024);
+        assert_eq!(event.date.month(), 6);
+        assert_eq!(event.date.day(), 2);
         assert_eq!(event.location, Some("Temppeliaukion Kirkko".to_owned()));
     }
 }

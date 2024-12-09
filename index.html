@@ -61,7 +61,7 @@
           let where = "?";
           if(obj) {
             what = obj.summary;
-            when = new Date(obj.time).toLocaleString();
+            when = `${obj.date}${obj.time ? " " + obj.time : ""}`;
             if(obj.location) {
               where = obj.location;
             }

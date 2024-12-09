@@ -1,4 +1,4 @@
-use jiff::{tz::TimeZone, Timestamp, Zoned};
+use jiff::{tz::TimeZone, civil::DateTime, Timestamp, Zoned};
 use js_sys::Date;
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
@@ -22,6 +22,14 @@ pub fn parse_at_time(string: String, at: Date) -> EventResult {
     let millis = at.get_milliseconds();
     let now = Zoned::new(Timestamp::from_millisecond(millis as i64).expect("failed to construct Zoned from js Date"), TimeZone::UTC);
     EventResult(NewEvent::parse_at_time(&string, now))
+}
+
+#[derive(Debug, Clone, Copy, Tsify, Serialize, Deserialize)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct DateTimeWrapper(DateTime);
+#[wasm_bindgen]
+pub fn to_datetime(event: NewEvent) -> DateTimeWrapper {
+    DateTimeWrapper(event.datetime())
 }
 
 #[wasm_bindgen]

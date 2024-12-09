@@ -230,9 +230,9 @@ impl AsDate for DateUnit {
 /// - a relative date, such as:
 ///   - tomorrow
 ///   - yesterday
-///   - (next/last) (weekday)
-///   - (not implemented yet) (next/last) (weekday/"context event")
-///   - (not implemented yet) (weekday) (after/before) ("context event")
+///   - ("next"/"last") (weekday)
+///   - (not implemented yet) ("next"/"last") (context event)
+///   - (not implemented yet) (weekday/"day") ("after"/"before") (context event)
 pub fn find_date(s: &str) -> Option<(DateUnit, usize, usize)> {
     let mut start = 0;
     let mut past_words = vec![];
