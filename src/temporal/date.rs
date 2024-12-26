@@ -14,13 +14,27 @@ trait FromMultiword {
     fn parse_multiword(words: &Vec<String>) -> Option<(Self, usize)> where Self: Sized;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, strum_macros::Display, strum_macros::EnumIter)]
 pub enum DateRelativeLanguage {
     English,
     Finnish
 }
+impl DateRelativeLanguage {
+    pub fn get_noun_prev(&self) -> &'static str {
+        match self {
+            DateRelativeLanguage::English => "last",
+            DateRelativeLanguage::Finnish => "viime",
+        }
+    }
+    pub fn get_noun_next(&self) -> &'static str {
+        match self {
+            DateRelativeLanguage::English => "next",
+            DateRelativeLanguage::Finnish => "ensi",
+        }
+    }
+}
 
-#[derive(Debug, Clone, Copy, PartialEq, strum_macros::Display, strum_macros::EnumIter, strum_macros::IntoStaticStr)]
+#[derive(Debug, Clone, Copy, PartialEq, strum_macros::Display, strum_macros::EnumIter)]
 pub enum DateRelativeWeekday {
     Monday,
     Tuesday,
@@ -40,6 +54,32 @@ impl Into<jiff::civil::Weekday> for DateRelativeWeekday {
             DateRelativeWeekday::Friday     => jiff::civil::Weekday::Friday,
             DateRelativeWeekday::Saturday   => jiff::civil::Weekday::Saturday,
             DateRelativeWeekday::Sunday     => jiff::civil::Weekday::Sunday,
+        }
+    }
+}
+impl DateRelativeWeekday {
+    pub fn to_locale_static_str(&self, lang: DateRelativeLanguage) -> &'static str {
+        match (self, lang) {
+            (DateRelativeWeekday::Monday, DateRelativeLanguage::English) => "monday",
+            (DateRelativeWeekday::Monday, DateRelativeLanguage::Finnish) => "maanantaina",
+
+            (DateRelativeWeekday::Tuesday, DateRelativeLanguage::English) => "tuesday",
+            (DateRelativeWeekday::Tuesday, DateRelativeLanguage::Finnish) => "tiistaina",
+
+            (DateRelativeWeekday::Wednesday, DateRelativeLanguage::English) => "wednesday",
+            (DateRelativeWeekday::Wednesday, DateRelativeLanguage::Finnish) => "keskiviikkona",
+
+            (DateRelativeWeekday::Thurdsday, DateRelativeLanguage::English) => "thursday",
+            (DateRelativeWeekday::Thurdsday, DateRelativeLanguage::Finnish) => "torstaina",
+
+            (DateRelativeWeekday::Friday, DateRelativeLanguage::English) => "friday",
+            (DateRelativeWeekday::Friday, DateRelativeLanguage::Finnish) => "perjantaina",
+
+            (DateRelativeWeekday::Saturday, DateRelativeLanguage::English) => "saturday",
+            (DateRelativeWeekday::Saturday, DateRelativeLanguage::Finnish) => "lauantaina",
+
+            (DateRelativeWeekday::Sunday, DateRelativeLanguage::English) => "sunday",
+            (DateRelativeWeekday::Sunday, DateRelativeLanguage::Finnish) => "sunnuntaina",
         }
     }
 }
@@ -96,15 +136,17 @@ impl FromMultiword for DateRelative {
             return Some((Self::Overmorrow(DateRelativeLanguage::English), 3));
         }
 
-        for weekday in DateRelativeWeekday::iter() {
-            if check_sequence(&["next", weekday.into()]).is_some() {
-                return Some((Self::NextWeekday(DateRelativeLanguage::English, weekday), 2));
+        for lang in DateRelativeLanguage::iter() {
+            for weekday in DateRelativeWeekday::iter() {
+                if check_sequence(&[lang.get_noun_next(), weekday.to_locale_static_str(lang)]).is_some() {
+                    return Some((Self::NextWeekday(lang, weekday), 2));
+                }
             }
-        }
 
-        for weekday in DateRelativeWeekday::iter() {
-            if check_sequence(&["last", weekday.into()]).is_some() {
-                return Some((Self::LastWeekday(DateRelativeLanguage::English, weekday), 2));
+            for weekday in DateRelativeWeekday::iter() {
+                if check_sequence(&[lang.get_noun_prev(), weekday.to_locale_static_str(lang)]).is_some() {
+                    return Some((Self::LastWeekday(lang, weekday), 2));
+                }
             }
         }
 
@@ -332,6 +374,13 @@ mod tests {
         assert_eq!(unit, DateUnit::Relative(DateRelative::NextWeekday(DateRelativeLanguage::English, DateRelativeWeekday::Wednesday)));
         assert_eq!(start, 16);
         assert_eq!(end, 30);
+    }
+    #[test]
+    fn find_date_relative_weekday_c() {
+        let (unit, start, end) = find_date("Marian synttärit ensi torstaina").expect("parse failed");
+        assert_eq!(unit, DateUnit::Relative(DateRelative::NextWeekday(DateRelativeLanguage::Finnish, DateRelativeWeekday::Thurdsday)));
+        assert_eq!(start, 18);
+        assert_eq!(end, 32);
     }
 
     #[test]
