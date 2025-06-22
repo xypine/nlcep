@@ -1,14 +1,14 @@
 //! ## Natural Language Calendar Event Parser
 //! ### About
 //! A library for parsing strings such as "John's birthday 18.11." or "Meeting about new duck quotas tomorrow 11:00 @ A769" into a machine readable format.
-//! 
+//!
 //! Copyright (C) 2024 Elias Eskelinen <elias.eskelinen@pm.me>
-//! 
+//!
 //! This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-//! 
+//!
 //! This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
-//! 
-//! You should have received a copy of the GNU Affero General Public License along with this program (LICENSE.txt). If not, see <https://www.gnu.org/licenses/>. 
+//!
+//! You should have received a copy of the GNU Affero General Public License along with this program (LICENSE.txt). If not, see <https://www.gnu.org/licenses/>.
 //!
 //! ### Usage
 //! The main logic can be accessed by constructing a [`NewEvent`] from a string. For example:
@@ -39,7 +39,7 @@
 //! use jiff::{ Timestamp, Zoned };
 //! let now: Zoned = "2024-07-11T13:14:00Z"
 //!     .parse::<Timestamp>().expect("Invalid timestamp")
-//!     .intz("America/New_York").expect("Invalid timezone");
+//!     .in_tz("America/New_York").expect("Invalid timezone");
 //! // Parse event with an alternative "now"
 //! let event =
 //!     nlcep::NewEvent::parse_at_time("water the plants tomorrow", now)
@@ -96,14 +96,17 @@ use wasm_bindgen::prelude::*;
 
 use std::str::FromStr;
 
-use jiff::{civil::{Date, DateTime, Time}, Span, Zoned};
+use jiff::{
+    civil::{Date, DateTime, Time},
+    Span, Zoned,
+};
 use lazy_regex::regex;
 use temporal::find_datetime;
 
 use serde::{Deserialize, Serialize};
 
 /// Represents a parsed event
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct NewEvent {
@@ -114,14 +117,37 @@ pub struct NewEvent {
     /// Where the event takes place, not mandatory
     pub location: Option<String>,
     /// For how long the event goes on, not mandatory
-    pub duration: Option<Span>
+    pub duration: Option<Span>,
+}
+
+impl PartialEq for NewEvent {
+    fn eq(&self, other: &Self) -> bool {
+        let duration_same = match (self.duration, other.duration) {
+            (None, None) => true,
+            (Some(_), None) => false,
+            (None, Some(_)) => false,
+            (Some(a), Some(b)) => a
+                .compare(b)
+                .map(|ord| match ord {
+                    std::cmp::Ordering::Equal => true,
+                    _ => false,
+                })
+                .unwrap_or(false),
+        };
+        self.summary == other.summary
+            && self.date == other.date
+            && self.time == other.time
+            && self.location == other.location
+            && duration_same
+    }
 }
 
 impl NewEvent {
     pub fn parse_at_time(s: &str, now: Zoned) -> Result<Self, EventParseError> {
         let mut summary: Option<String> = None;
         let mut location: Option<String> = None;
-        let (date, time, time_starts, time_ends) = find_datetime(s, now)?.ok_or(EventParseError::MissingTime)?;
+        let (date, time, time_starts, time_ends) =
+            find_datetime(s, now)?.ok_or(EventParseError::MissingTime)?;
         let (before_time, _) = s.split_at(time_starts);
         let (_, after_time) = s.split_at(time_ends);
 
@@ -132,7 +158,10 @@ impl NewEvent {
 
         let location_start_pattern = regex!(r"\s*[@ | ,]\s+.+");
         if location_start_pattern.is_match(after_time) {
-            let trimmed_location = after_time.trim().trim_start_matches(['@', ',']).trim_start();
+            let trimmed_location = after_time
+                .trim()
+                .trim_start_matches(['@', ','])
+                .trim_start();
             location = Some(trimmed_location.to_owned());
         }
 
@@ -141,7 +170,7 @@ impl NewEvent {
             date,
             time,
             location,
-            duration: None
+            duration: None,
         })
     }
 
@@ -210,7 +239,7 @@ mod tests {
 
     #[test]
     fn trivial_a() {
-        let now = date(2024, 6, 1).intz("UTC").unwrap();
+        let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11.", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
         assert_eq!(event.datetime().year(), Zoned::now().year());
@@ -219,10 +248,10 @@ mod tests {
         assert_eq!(event.datetime().hour(), 0);
         assert_eq!(event.location, None);
     }
-    
+
     #[test]
     fn with_time_short() {
-        let now = date(2024, 6, 1).intz("UTC").unwrap();
+        let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. 16", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
         assert_eq!(event.datetime().year(), Zoned::now().year());
@@ -235,7 +264,7 @@ mod tests {
 
     #[test]
     fn with_time_long_a() {
-        let now = date(2024, 6, 1).intz("UTC").unwrap();
+        let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. 16:00", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
         assert_eq!(event.datetime().year(), Zoned::now().year());
@@ -248,7 +277,7 @@ mod tests {
 
     #[test]
     fn with_time_long_b() {
-        let now = date(2024, 6, 1).intz("UTC").unwrap();
+        let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. 1:59", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
         assert_eq!(event.datetime().year(), Zoned::now().year());
@@ -261,7 +290,7 @@ mod tests {
 
     #[test]
     fn trivial_with_location_a() {
-        let now = date(2024, 6, 1).intz("UTC").unwrap();
+        let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. @ Memory Plaza", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
         assert_eq!(event.date.year(), Zoned::now().year());
@@ -272,7 +301,7 @@ mod tests {
 
     #[test]
     fn relative_a() {
-        let now = date(2024, 6, 1).intz("UTC").unwrap();
+        let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday tomorrow", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
         assert_eq!(event.date.year(), 2024);
@@ -283,8 +312,9 @@ mod tests {
 
     #[test]
     fn relative_with_location_a() {
-        let now = date(2024, 6, 1).intz("UTC").unwrap();
-        let event = NewEvent::parse_at_time("John's birthday tomorrow @ Tuomiokirkko", now).unwrap();
+        let now = date(2024, 6, 1).in_tz("UTC").unwrap();
+        let event =
+            NewEvent::parse_at_time("John's birthday tomorrow @ Tuomiokirkko", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
         assert_eq!(event.date.year(), 2024);
         assert_eq!(event.date.month(), 6);
@@ -293,8 +323,9 @@ mod tests {
     }
     #[test]
     fn relative_with_location_b() {
-        let now = date(2024, 6, 1).intz("UTC").unwrap();
-        let event = NewEvent::parse_at_time("John's birthday tomorrow, Temppeliaukion Kirkko", now).unwrap();
+        let now = date(2024, 6, 1).in_tz("UTC").unwrap();
+        let event = NewEvent::parse_at_time("John's birthday tomorrow, Temppeliaukion Kirkko", now)
+            .unwrap();
         assert_eq!(event.summary, "John's birthday");
         assert_eq!(event.date.year(), 2024);
         assert_eq!(event.date.month(), 6);

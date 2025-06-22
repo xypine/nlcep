@@ -11,17 +11,17 @@ repository = "https://github.com/xypine/nlcep"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-jiff = { version = "0.1", features = ["serde"] }
+jiff = { version = "0.2", features = ["serde"] }
 lazy-regex = "3.3"
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 
 wasm-bindgen = { version = "0.2", optional = true }
-tsify = { version = "0.4", default-features = true, features = ["js"], optional = true }
+tsify = { version = "0.5", default-features = true, features = ["js"], optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 js-sys = { version = "0.3.76", optional = true }
-strum_macros = "0.26.4"
-strum = "0.26.3"
+strum_macros = "0.27"
+strum = "0.27"
 
 [features]
 wasm = ["wasm-bindgen", "tsify", "jiff/js", "js-sys"]
