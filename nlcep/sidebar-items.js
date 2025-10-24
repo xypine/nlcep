@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["EventParseError"],"struct":["NewEvent"]};
+window.SIDEBAR_ITEMS = {"enum":["EventParseError"],"fn":["find_datetime"],"struct":["NewEvent"]};

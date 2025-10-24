@@ -1,3 +1,2 @@
-var srcIndex = new Map(JSON.parse('[["nlcep",["",[["temporal",[],["date.rs","mod.rs","time.rs"]]],["lib.rs"]]]]'));
-createSrcSidebar();
-//{"start":36,"fragment_lengths":[74]}
+createSrcSidebar('[["nlcep",["",[["temporal",[],["date.rs","mod.rs","time.rs"]]],["lib.rs"]]]]');
+//{"start":19,"fragment_lengths":[74]}
