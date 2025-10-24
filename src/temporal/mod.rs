@@ -15,17 +15,18 @@ use time::{find_time, AsTime};
 
 use crate::EventParseError;
 
+pub struct DateTimeMatch {
+    pub date: Date,
+    pub time: Option<Time>,
+    pub start_char: usize,
+    pub end_char: usize,
+}
+
 /// Tries to find a datetime from the supplied string.
 /// The date must be before the time.
 /// See [`find_date`] and [`find_time`] for more information on accepted formatting of the date or
 /// time.
-///
-/// Returns the interpreted [`DateTime`], allday?, and the start, end indices of
-/// the original string where the datetime was parsed from.
-pub fn find_datetime(
-    s: &str,
-    now: Zoned,
-) -> Result<Option<(Date, Option<Time>, usize, usize)>, EventParseError> {
+pub fn find_datetime(s: &str, now: Zoned) -> Result<Option<DateTimeMatch>, EventParseError> {
     if let Some((date, date_start, date_end)) = find_date(s) {
         let (_, s_after_date) = s.split_at(date_end);
 
@@ -37,7 +38,12 @@ pub fn find_datetime(
         } else {
             None
         };
-        return Ok(Some((date, time, date_start, end)));
+        return Ok(Some(DateTimeMatch {
+            date,
+            time,
+            start_char: date_start,
+            end_char: end,
+        }));
     }
     Ok(None)
 }
@@ -49,11 +55,16 @@ mod tests {
     #[test]
     fn date_a() {
         let now = jiff::civil::date(2000, 1, 1).in_tz("UTC").unwrap();
-        let (date, time, start, end) = find_datetime("21.11.2004", now)
+        let DateTimeMatch {
+            date,
+            time,
+            start_char,
+            end_char,
+        } = find_datetime("21.11.2004", now)
             .expect("parse failed")
             .expect("no parse result");
-        assert_eq!(start, 0);
-        assert_eq!(end, 10);
+        assert_eq!(start_char, 0);
+        assert_eq!(end_char, 10);
         assert_eq!(date.year(), 2004);
         assert_eq!(date.month(), 11);
         assert_eq!(date.day(), 21);
@@ -62,11 +73,16 @@ mod tests {
     #[test]
     fn datetime_a() {
         let now = jiff::civil::date(2000, 1, 1).in_tz("UTC").unwrap();
-        let (date, time, start, end) = find_datetime("22.9.1999 11:00", now)
+        let DateTimeMatch {
+            date,
+            time,
+            start_char,
+            end_char,
+        } = find_datetime("22.9.1999 11:00", now)
             .expect("parse failed")
             .expect("no parse result");
-        assert_eq!(start, 0);
-        assert_eq!(end, 15);
+        assert_eq!(start_char, 0);
+        assert_eq!(end_char, 15);
         assert_eq!(date.year(), 1999);
         assert_eq!(date.month(), 9);
         assert_eq!(date.day(), 22);
@@ -77,11 +93,16 @@ mod tests {
     #[test]
     fn datetime_b() {
         let now = jiff::civil::date(2000, 1, 1).in_tz("UTC").unwrap();
-        let (date, time, start, end) = find_datetime("22.9.1999 11", now)
+        let DateTimeMatch {
+            date,
+            time,
+            start_char,
+            end_char,
+        } = find_datetime("22.9.1999 11", now)
             .expect("parse failed")
             .expect("no parse result");
-        assert_eq!(start, 0);
-        assert_eq!(end, 12);
+        assert_eq!(start_char, 0);
+        assert_eq!(end_char, 12);
         assert_eq!(date.year(), 1999);
         assert_eq!(date.month(), 9);
         assert_eq!(date.day(), 22);
@@ -92,11 +113,16 @@ mod tests {
     #[test]
     fn datetime_relative_year_a() {
         let now = jiff::civil::date(2000, 6, 1).in_tz("UTC").unwrap();
-        let (date, time, start, end) = find_datetime("22.9. 11", now)
+        let DateTimeMatch {
+            date,
+            time,
+            start_char,
+            end_char,
+        } = find_datetime("22.9. 11", now)
             .expect("parse failed")
             .expect("no parse result");
-        assert_eq!(start, 0);
-        assert_eq!(end, 8);
+        assert_eq!(start_char, 0);
+        assert_eq!(end_char, 8);
         assert_eq!(date.year(), 2000);
         assert_eq!(date.month(), 9);
         assert_eq!(date.day(), 22);
@@ -107,11 +133,16 @@ mod tests {
     #[test]
     fn datetime_relative_year_b() {
         let now = jiff::civil::date(2000, 6, 1).in_tz("UTC").unwrap();
-        let (date, time, start, end) = find_datetime("22.1. 11", now)
+        let DateTimeMatch {
+            date,
+            time,
+            start_char,
+            end_char,
+        } = find_datetime("22.1. 11", now)
             .expect("parse failed")
             .expect("no parse result");
-        assert_eq!(start, 0);
-        assert_eq!(end, 8);
+        assert_eq!(start_char, 0);
+        assert_eq!(end_char, 8);
         assert_eq!(date.year(), 2001);
         assert_eq!(date.month(), 1);
         assert_eq!(date.day(), 22);
@@ -123,11 +154,16 @@ mod tests {
     #[test]
     fn datetime_relative() {
         let now = jiff::civil::date(2000, 1, 2).in_tz("UTC").unwrap();
-        let (date, time, start, end) = find_datetime("tomorrow 0:30:12", now)
+        let DateTimeMatch {
+            date,
+            time,
+            start_char,
+            end_char,
+        } = find_datetime("tomorrow 0:30:12", now)
             .expect("parse failed")
             .expect("no parse result");
-        assert_eq!(start, 0);
-        assert_eq!(end, 16);
+        assert_eq!(start_char, 0);
+        assert_eq!(end_char, 16);
         assert_eq!(date.year(), 2000);
         assert_eq!(date.month(), 1);
         assert_eq!(date.day(), 3);
@@ -140,11 +176,16 @@ mod tests {
     #[test]
     fn datetime_relative_weekday_a() {
         let now = jiff::civil::date(2024, 12, 8).in_tz("UTC").unwrap();
-        let (date, time, start, end) = find_datetime("next monday 0:30:12", now)
+        let DateTimeMatch {
+            date,
+            time,
+            start_char,
+            end_char,
+        } = find_datetime("next monday 0:30:12", now)
             .expect("parse failed")
             .expect("no parse result");
-        assert_eq!(start, 0);
-        assert_eq!(end, 19);
+        assert_eq!(start_char, 0);
+        assert_eq!(end_char, 19);
         assert_eq!(date.year(), 2024);
         assert_eq!(date.month(), 12);
         assert_eq!(date.day(), 9);
@@ -156,11 +197,16 @@ mod tests {
     #[test]
     fn datetime_relative_weekday_b() {
         let now = jiff::civil::date(2024, 12, 8).in_tz("UTC").unwrap();
-        let (date, time, start, end) = find_datetime("last sunday 0:30:12", now)
+        let DateTimeMatch {
+            date,
+            time,
+            start_char,
+            end_char,
+        } = find_datetime("last sunday 0:30:12", now)
             .expect("parse failed")
             .expect("no parse result");
-        assert_eq!(start, 0);
-        assert_eq!(end, 19);
+        assert_eq!(start_char, 0);
+        assert_eq!(end_char, 19);
         assert_eq!(date.year(), 2024);
         assert_eq!(date.month(), 12);
         assert_eq!(date.day(), 1);
@@ -172,11 +218,16 @@ mod tests {
     #[test]
     fn datetime_relative_weekday_c() {
         let now = jiff::civil::date(2024, 12, 8).in_tz("UTC").unwrap();
-        let (date, time, start, end) = find_datetime("last wednesday 0:30:12", now)
+        let DateTimeMatch {
+            date,
+            time,
+            start_char,
+            end_char,
+        } = find_datetime("last wednesday 0:30:12", now)
             .expect("parse failed")
             .expect("no parse result");
-        assert_eq!(start, 0);
-        assert_eq!(end, 22);
+        assert_eq!(start_char, 0);
+        assert_eq!(end_char, 22);
         assert_eq!(date.year(), 2024);
         assert_eq!(date.month(), 12);
         assert_eq!(date.day(), 4);

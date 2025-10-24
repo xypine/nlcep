@@ -105,6 +105,8 @@ use temporal::find_datetime;
 
 use serde::{Deserialize, Serialize};
 
+use crate::temporal::DateTimeMatch;
+
 /// Represents a parsed event
 #[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
@@ -128,10 +130,7 @@ impl PartialEq for NewEvent {
             (None, Some(_)) => false,
             (Some(a), Some(b)) => a
                 .compare(b)
-                .map(|ord| match ord {
-                    std::cmp::Ordering::Equal => true,
-                    _ => false,
-                })
+                .map(|ord| matches!(ord, std::cmp::Ordering::Equal))
                 .unwrap_or(false),
         };
         self.summary == other.summary
@@ -146,8 +145,12 @@ impl NewEvent {
     pub fn parse_at_time(s: &str, now: Zoned) -> Result<Self, EventParseError> {
         let mut summary: Option<String> = None;
         let mut location: Option<String> = None;
-        let (date, time, time_starts, time_ends) =
-            find_datetime(s, now)?.ok_or(EventParseError::MissingTime)?;
+        let DateTimeMatch {
+            date,
+            time,
+            start_char: time_starts,
+            end_char: time_ends,
+        } = find_datetime(s, now)?.ok_or(EventParseError::MissingTime)?;
         let (before_time, _) = s.split_at(time_starts);
         let (_, after_time) = s.split_at(time_ends);
 
@@ -175,11 +178,8 @@ impl NewEvent {
     }
 
     pub fn datetime(&self) -> DateTime {
-        if let Some(time) = self.time {
-            self.date.to_datetime(time)
-        } else {
-            self.date.into()
-        }
+        self.time
+            .map_or_else(|| self.date.into(), |time| self.date.to_datetime(time))
     }
 }
 
@@ -229,7 +229,7 @@ impl FromStr for NewEvent {
 mod tests {
     use super::*;
 
-    use jiff::{civil::date, Zoned};
+    use jiff::civil::date;
 
     #[test]
     fn fail_only_summary() {
@@ -242,7 +242,7 @@ mod tests {
         let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11.", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.datetime().year(), Zoned::now().year());
+        assert_eq!(event.datetime().year(), 2024);
         assert_eq!(event.datetime().day(), 18);
         assert_eq!(event.datetime().month(), 11);
         assert_eq!(event.datetime().hour(), 0);
@@ -254,7 +254,7 @@ mod tests {
         let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. 16", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.datetime().year(), Zoned::now().year());
+        assert_eq!(event.datetime().year(), 2024);
         assert_eq!(event.datetime().day(), 18);
         assert_eq!(event.datetime().month(), 11);
         assert_eq!(event.datetime().hour(), 16);
@@ -267,7 +267,7 @@ mod tests {
         let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. 16:00", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.datetime().year(), Zoned::now().year());
+        assert_eq!(event.datetime().year(), 2024);
         assert_eq!(event.datetime().day(), 18);
         assert_eq!(event.datetime().month(), 11);
         assert_eq!(event.datetime().hour(), 16);
@@ -280,7 +280,7 @@ mod tests {
         let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. 1:59", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.datetime().year(), Zoned::now().year());
+        assert_eq!(event.datetime().year(), 2024);
         assert_eq!(event.datetime().day(), 18);
         assert_eq!(event.datetime().month(), 11);
         assert_eq!(event.datetime().hour(), 1);
@@ -293,7 +293,7 @@ mod tests {
         let now = date(2024, 6, 1).in_tz("UTC").unwrap();
         let event = NewEvent::parse_at_time("John's birthday 18.11. @ Memory Plaza", now).unwrap();
         assert_eq!(event.summary, "John's birthday");
-        assert_eq!(event.date.year(), Zoned::now().year());
+        assert_eq!(event.date.year(), 2024);
         assert_eq!(event.date.day(), 18);
         assert_eq!(event.date.month(), 11);
         assert_eq!(event.location, Some("Memory Plaza".to_owned()));
