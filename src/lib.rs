@@ -65,7 +65,6 @@
     missing_copy_implementations,
     missing_debug_implementations,
     clippy::missing_docs_in_private_items,
-    clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     non_ascii_idents,
     noop_method_call,
@@ -89,6 +88,8 @@
 )]
 
 pub(crate) mod temporal;
+pub use temporal::find_datetime;
+
 #[cfg(feature = "wasm")]
 pub mod wasm;
 #[cfg(feature = "wasm")]
@@ -101,8 +102,6 @@ use jiff::{
     Span, Zoned,
 };
 use lazy_regex::regex;
-use temporal::find_datetime;
-
 use serde::{Deserialize, Serialize};
 
 use crate::temporal::DateTimeMatch;
@@ -150,7 +149,7 @@ impl NewEvent {
             time,
             start_char: time_starts,
             end_char: time_ends,
-        } = find_datetime(s, now)?.ok_or(EventParseError::MissingTime)?;
+        } = find_datetime(s, now, false)?.ok_or(EventParseError::MissingTime)?;
         let (before_time, _) = s.split_at(time_starts);
         let (_, after_time) = s.split_at(time_ends);
 

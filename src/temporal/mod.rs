@@ -13,8 +13,12 @@ pub mod time;
 use date::AsDate;
 use time::{find_time, AsTime};
 
-use crate::EventParseError;
+use crate::{
+    temporal::date::{DateRelative, DateUnit},
+    EventParseError,
+};
 
+#[derive(Debug, Clone, Copy)]
 pub struct DateTimeMatch {
     pub date: Date,
     pub time: Option<Time>,
@@ -26,8 +30,18 @@ pub struct DateTimeMatch {
 /// The date must be before the time.
 /// See [`find_date`] and [`find_time`] for more information on accepted formatting of the date or
 /// time.
-pub fn find_datetime(s: &str, now: Zoned) -> Result<Option<DateTimeMatch>, EventParseError> {
-    if let Some((date, date_start, date_end)) = find_date(s) {
+pub fn find_datetime(
+    s: &str,
+    now: Zoned,
+    default_date: bool,
+) -> Result<Option<DateTimeMatch>, EventParseError> {
+    if let Some((date, date_start, date_end)) = find_date(s).or_else(|| {
+        default_date.then_some((
+            DateUnit::Relative(DateRelative::Today(date::DateRelativeLanguage::English)),
+            0,
+            0,
+        ))
+    }) {
         let (_, s_after_date) = s.split_at(date_end);
 
         let date = date.as_date(now)?;
@@ -60,7 +74,7 @@ mod tests {
             time,
             start_char,
             end_char,
-        } = find_datetime("21.11.2004", now)
+        } = find_datetime("21.11.2004", now, false)
             .expect("parse failed")
             .expect("no parse result");
         assert_eq!(start_char, 0);
@@ -78,7 +92,7 @@ mod tests {
             time,
             start_char,
             end_char,
-        } = find_datetime("22.9.1999 11:00", now)
+        } = find_datetime("22.9.1999 11:00", now, false)
             .expect("parse failed")
             .expect("no parse result");
         assert_eq!(start_char, 0);
@@ -98,7 +112,7 @@ mod tests {
             time,
             start_char,
             end_char,
-        } = find_datetime("22.9.1999 11", now)
+        } = find_datetime("22.9.1999 11", now, false)
             .expect("parse failed")
             .expect("no parse result");
         assert_eq!(start_char, 0);
@@ -118,7 +132,7 @@ mod tests {
             time,
             start_char,
             end_char,
-        } = find_datetime("22.9. 11", now)
+        } = find_datetime("22.9. 11", now, false)
             .expect("parse failed")
             .expect("no parse result");
         assert_eq!(start_char, 0);
@@ -138,7 +152,7 @@ mod tests {
             time,
             start_char,
             end_char,
-        } = find_datetime("22.1. 11", now)
+        } = find_datetime("22.1. 11", now, false)
             .expect("parse failed")
             .expect("no parse result");
         assert_eq!(start_char, 0);
@@ -159,7 +173,7 @@ mod tests {
             time,
             start_char,
             end_char,
-        } = find_datetime("tomorrow 0:30:12", now)
+        } = find_datetime("tomorrow 0:30:12", now, false)
             .expect("parse failed")
             .expect("no parse result");
         assert_eq!(start_char, 0);
@@ -181,7 +195,7 @@ mod tests {
             time,
             start_char,
             end_char,
-        } = find_datetime("next monday 0:30:12", now)
+        } = find_datetime("next monday 0:30:12", now, false)
             .expect("parse failed")
             .expect("no parse result");
         assert_eq!(start_char, 0);
@@ -202,7 +216,7 @@ mod tests {
             time,
             start_char,
             end_char,
-        } = find_datetime("last sunday 0:30:12", now)
+        } = find_datetime("last sunday 0:30:12", now, false)
             .expect("parse failed")
             .expect("no parse result");
         assert_eq!(start_char, 0);
@@ -223,7 +237,7 @@ mod tests {
             time,
             start_char,
             end_char,
-        } = find_datetime("last wednesday 0:30:12", now)
+        } = find_datetime("last wednesday 0:30:12", now, false)
             .expect("parse failed")
             .expect("no parse result");
         assert_eq!(start_char, 0);
